@@ -9,14 +9,32 @@ CONFIG += c++11
 #DEFINES += QT_DISABLE_DEPRECATED_BEFORE=0x060000    # disables all the APIs deprecated before Qt 6.0.0
 
 SOURCES += \
-    main.cpp \
-    mainwindow.cpp
+    src/enemy.cpp \
+    src/gameentity.cpp \
+    src/gamepage.cpp \
+    src/main.cpp \
+    src/mainmenupage.cpp \
+    src/mainwindow.cpp \
+    src/resourcemanager.cpp \
+    src/tower.cpp \
+    src/bullet.cpp
 
 HEADERS += \
-    mainwindow.h
+    include/config.h \
+    include/enemy.h \
+    include/gameentity.h \
+    include/gamepage.h \
+    include/mainmenupage.h \
+    include/mainwindow.h \
+    include/resourcemanager.h \
+    include/tower.h \
+    include/bullet.h
 
 FORMS += \
-    mainwindow.ui
+    ui/mainwindow.ui
+
+RESOURCES += \
+    res/res.qrc
 
 # Default rules for deployment.
 qnx: target.path = /tmp/$${TARGET}/bin

@@ -1,0 +1,19 @@
+<!DOCTYPE RCC>
+<RCC version="1.0">
+  <qresource prefix="/image/">
+    <file>map.png</file>
+  </qresource>
+  <qresource prefix="/image/enemy">
+    <file>enemy_jump.png</file>
+    <file>enemy_idle.png</file>
+    <file>enemy_dead.png</file>
+    <file>enemy_walk.png</file>
+  </qresource>
+  <qresource prefix="/image/bullet">
+    <file>bullet.png</file>
+  </qresource>
+  <qresource prefix="/image/tower">
+    <file>tower.png</file>
+    <file>towerbase.png</file>
+  </qresource>
+</RCC>
