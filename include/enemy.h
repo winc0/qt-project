@@ -26,6 +26,7 @@ public:
     int getEnemyType() const { return enemyType; }
     EnemyState getState() const { return currentState; }
     void setState(EnemyState state);
+    QPointF getCenterPosition() const;
     
     // 暂停/恢复敌人移动
     void pauseMovement() { if (moveTimer) moveTimer->stop(); }

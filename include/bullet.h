@@ -11,7 +11,7 @@ class Bullet : public GameEntity
 {
     Q_OBJECT
 public:
-    explicit Bullet(QPointF startPos, Enemy* target, int damage, QObject *parent = nullptr);
+    explicit Bullet(QPointF startPos, QPointer<Enemy> target, int damage, QObject *parent = nullptr);
     ~Bullet();
 
     void update() override;
@@ -20,6 +20,9 @@ public:
     // 暂停/恢复移动
     void pauseMovement() { if (moveTimer) moveTimer->stop(); }
     void resumeMovement() { if (moveTimer && !moveTimer->isActive()) moveTimer->start(GameConfig::BULLET_MOVE_INTERVAL); }
+
+signals:
+    void hit(Enemy* enemy, int damage);
 
 private:
     void updateRotation();
@@ -32,6 +35,10 @@ private:
     int damage;
     float speed;
     QTimer* moveTimer;
+    QPointF direction; // 方向
+    QPointF startPosition; // 发射位置
+    float travelledDistance;
+    int lostTargetTimeMs;
 };
 
 #endif

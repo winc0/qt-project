@@ -47,6 +47,13 @@ void Enemy::setPath(const QVector<QPointF>& pathPoints)
     }
 }
 
+QPointF Enemy::getCenterPosition() const
+{
+    QPointF topLeft = pos();
+    QRectF rect = boundingRect();
+    return QPointF(topLeft.x() + rect.width() / 2.0, topLeft.y() + rect.height() / 2.0);
+}
+
 void Enemy::moveAlongPath()
 {
     if (reachedEnd || pathPoints.isEmpty() || currentPathIndex >= pathPoints.size()) {

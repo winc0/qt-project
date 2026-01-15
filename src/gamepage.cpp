@@ -10,15 +10,35 @@
 #include <QPushButton>
 #include <QLabel>
 #include <QFont>
-#include <QMessageBox>
 #include <QPainter>
 #include <QBrush>
 #include <QPen>
 #include <QDebug>
+#include <QGraphicsOpacityEffect>
+#include <QPropertyAnimation>
+#include <QEasingCurve>
+#include <QGraphicsRectItem>
+#include <QGraphicsTextItem>
+#include <QColor>
 #include <cmath>
+#include "include/placementvalidator.h"
 
 GamePage::GamePage(QWidget *parent)
-    : QWidget(parent), gameScene(nullptr), gameView(nullptr), gold(GameConfig::INITIAL_GOLD), lives(GameConfig::INITIAL_LIVES), currentWave(1), enemiesSpawnedThisWave(0), isPaused(false), gameRunning(false)
+    : QWidget(parent),
+      gameScene(nullptr),
+      gameView(nullptr),
+      gold(GameConfig::INITIAL_GOLD),
+      lives(GameConfig::INITIAL_LIVES),
+      currentWave(1),
+      waveSpawnComplete(false),
+      enemiesSpawnedThisWave(0),
+      isPaused(false),
+      gameRunning(false),
+      currentMapId(GameConfig::MAP_DEFAULT),
+      resultOverlay(nullptr),
+      resultPanel(nullptr),
+      placementValidator(nullptr),
+      killCount(0)
 {
     qDebug() << "GamePage constructor called";
 
@@ -28,12 +48,16 @@ GamePage::GamePage(QWidget *parent)
     initUI();
     initGameScene();
     createPath();
+    initPlacementValidator();
 
     qDebug() << "GamePage initialized, size:" << size();
 }
 
 GamePage::~GamePage()
 {
+    qDeleteAll(placementAreaItems);
+    placementAreaItems.clear();
+    delete placementValidator;
     resetGame();
 }
 
@@ -175,10 +199,15 @@ void GamePage::initGameScene()
     gameView->setVerticalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
     gameView->setFixedSize(GameConfig::WINDOW_WIDTH, GameConfig::WINDOW_HEIGHT);
     gameView->setFrameShape(QFrame::NoFrame);
+    setMouseTracking(true);
+    gameView->setMouseTracking(true);
+    gameView->viewport()->setMouseTracking(true);
+    gameView->viewport()->installEventFilter(this);
 
     // 绘制背景
     drawBackground();
     drawGrid();
+    drawPlacementAreas();
 
     // 添加到主布局
     mainLayout->addWidget(gameView);
@@ -247,27 +276,104 @@ void GamePage::drawGrid()
     }
 }
 
+void GamePage::initPlacementValidator()
+{
+    if (placementValidator) {
+        delete placementValidator;
+    }
+    placementValidator = new PlacementValidator();
+    placementValidator->loadConfig(GameConfig::Placement::BUILDABLE_MAP.value(currentMapId));
+    drawPlacementAreas();
+}
+
+void GamePage::drawPlacementAreas()
+{
+    qDeleteAll(placementAreaItems);
+    placementAreaItems.clear();
+
+    if (!gameScene || !placementValidator)
+        return;
+
+    const QSet<QPair<int, int>> &allowed = placementValidator->getAllowedGrids();
+    int gridSize = GameConfig::GRID_SIZE;
+
+    for (const auto &pair : allowed)
+    {
+        int gx = pair.first;
+        int gy = pair.second;
+        
+        QGraphicsRectItem *item = new QGraphicsRectItem(gx * gridSize, gy * gridSize, gridSize, gridSize);
+        // Visual style: Green border, slight green fill
+        item->setPen(QPen(QColor(0, 255, 0, 150), 2)); 
+        item->setBrush(QBrush(QColor(0, 255, 0, 20)));
+        item->setZValue(-40); // Above background/grid, below towers
+        gameScene->addItem(item);
+        placementAreaItems.append(item);
+    }
+}
+
+void GamePage::showFloatingTip(const QString &text, const QPointF &scenePos, const QColor &color)
+{
+    QGraphicsTextItem *tipItem = new QGraphicsTextItem(text);
+    tipItem->setFont(QFont("Microsoft YaHei", 12, QFont::Bold));
+    tipItem->setDefaultTextColor(color);
+    
+    // Center the text above the click position
+    QRectF bound = tipItem->boundingRect();
+    tipItem->setPos(scenePos.x() - bound.width() / 2, scenePos.y() - bound.height());
+    tipItem->setZValue(2000); // Top most
+    
+    gameScene->addItem(tipItem);
+
+    // Animate opacity
+    QPropertyAnimation *anim = new QPropertyAnimation(tipItem, "opacity");
+    anim->setDuration(GameConfig::TIP_DURATION_MS);
+    anim->setStartValue(1.0);
+    anim->setEndValue(0.0);
+    anim->setEasingCurve(QEasingCurve::InQuad);
+    
+    // Connect animation finish to deletion
+    connect(anim, &QPropertyAnimation::finished, [tipItem]() {
+        if (tipItem->scene()) {
+            tipItem->scene()->removeItem(tipItem);
+        }
+        delete tipItem;
+    });
+    
+    anim->start(QAbstractAnimation::DeleteWhenStopped);
+}
+
 void GamePage::createPath()
 {
-    // 创建简单的路径
-    pathPoints.clear();
-    pathPoints << QPointF(660 - GameConfig::ENEMY_SIZE / 2, 260 - GameConfig::ENEMY_SIZE / 2)
-               << QPointF(660 - GameConfig::ENEMY_SIZE / 2, 300 - GameConfig::ENEMY_SIZE / 2)
-               << QPointF(460 - GameConfig::ENEMY_SIZE / 2, 300 - GameConfig::ENEMY_SIZE / 2)
-               << QPointF(460 - GameConfig::ENEMY_SIZE / 2, 260 - GameConfig::ENEMY_SIZE / 2)
-               << QPointF(180 - GameConfig::ENEMY_SIZE / 2, 260 - GameConfig::ENEMY_SIZE / 2)
-               << QPointF(180 - GameConfig::ENEMY_SIZE / 2, 300 - GameConfig::ENEMY_SIZE / 2)
-               << QPointF(300 - GameConfig::ENEMY_SIZE / 2, 300 - GameConfig::ENEMY_SIZE / 2)
-               << QPointF(300 - GameConfig::ENEMY_SIZE / 2, 460 - GameConfig::ENEMY_SIZE / 2)
-               << QPointF(380 - GameConfig::ENEMY_SIZE / 2, 460 - GameConfig::ENEMY_SIZE / 2)
-               << QPointF(380 - GameConfig::ENEMY_SIZE / 2, 380 - GameConfig::ENEMY_SIZE / 2)
-               << QPointF(660 - GameConfig::ENEMY_SIZE / 2, 380 - GameConfig::ENEMY_SIZE / 2);
+    // 根据地图ID获取路径
+    QVector<GameConfig::GridPoint> gridPoints = GameConfig::MapPaths::PATH_MAP.value(currentMapId, GameConfig::MapPaths::DEFAULT_PATH);
+    
+    // 获取路径点
+    const qreal offset = GameConfig::GRID_SIZE / 2 - GameConfig::ENEMY_SIZE / 2;
+    for (const GameConfig::GridPoint &gridPoint : gridPoints)
+    {
+        qreal x = gridPoint.gridX * GameConfig::GRID_SIZE + offset;
+        qreal y = gridPoint.gridY * GameConfig::GRID_SIZE + offset;
+        pathPoints << QPointF(x, y);
+    }
+    
+    // 获取终点信息
+    if (!gridPoints.isEmpty())
+    {
+        const GameConfig::GridPoint &lastPoint = gridPoints.last();
+        qreal centerX = lastPoint.gridX * GameConfig::GRID_SIZE + GameConfig::GRID_SIZE / 2;
+        qreal centerY = lastPoint.gridY * GameConfig::GRID_SIZE + GameConfig::GRID_SIZE / 2;
+        endPointAreas.append({centerX, centerY, GameConfig::GRID_SIZE / 2});
+    }
 }
 
 void GamePage::startGame()
 {
     if (gameRunning)
         return;
+
+    killCount = 0;
+    elapsedTimer.restart();
 
     gameRunning = true;
     isPaused = false;
@@ -320,7 +426,7 @@ void GamePage::resetGame()
         enemySpawnTimer->stop();
 
     // 清理所有敌人
-    for (Enemy *enemy : enemies)
+    for (QPointer<Enemy> enemy : enemies)
     {
         if (enemy)
         {
@@ -331,7 +437,7 @@ void GamePage::resetGame()
     enemies.clear();
 
     // 清理所有防御塔
-    for (Tower *tower : towers)
+    for (QPointer<Tower> tower : towers)
     {
         if (tower)
         {
@@ -349,6 +455,7 @@ void GamePage::resetGame()
     waveSpawnComplete = false;
     gameRunning = false;
     isPaused = false;
+    killCount = 0;
 
     // 更新UI显示
     goldLabel->setText(QString::number(gold));
@@ -376,7 +483,7 @@ void GamePage::spawnEnemy()
     }
 
     // 创建新敌人
-    Enemy *enemy = new Enemy(0, this); // 类型0:基础敌人
+    QPointer<Enemy> enemy = new Enemy(0, this); // 类型0:基础敌人
     enemy->setPath(pathPoints);
 
     // 添加到场景和列表
@@ -414,17 +521,16 @@ void GamePage::updateGame()
 
 void GamePage::updateEnemies()
 {
-    QList<Enemy *> enemiesToRemove;
+    QList<QPointer<Enemy>> enemiesToRemove;
 
-    for (Enemy *enemy : enemies)
+    for (QPointer<Enemy> enemy : enemies)
     {
         if (!enemy)
             continue;
 
         enemy->update();
 
-        // 检查敌人是否到达终点
-        if (enemy->x() > 640 - 20 && enemy->x() < 680 + 20 && enemy->y() > 360 - 20 && enemy->y() < 400 + 20) // todo
+        if (isEnemyAtAnyEndPoint(enemy))
         {
             // 敌人到达终点，扣减生命值
             lives--;
@@ -438,24 +544,43 @@ void GamePage::updateEnemies()
     }
 
     // 移除到达终点的敌人
-    for (Enemy *enemy : enemiesToRemove)
+    for (QPointer<Enemy> enemy : enemiesToRemove)
     {
         enemies.removeOne(enemy);
         enemy->deleteLater();
     }
 }
 
+bool GamePage::isEnemyAtAnyEndPoint(QPointer<Enemy> enemy) const
+{
+    if (!enemy || endPointAreas.isEmpty())
+        return false;
+
+    QPointF enemyCenter = enemy->getCenterPosition();
+    for (const GameConfig::EndPointConfig &end : endPointAreas)
+    {
+        qreal dx = enemyCenter.x() - end.x;
+        qreal dy = enemyCenter.y() - end.y;
+        qreal distance = std::sqrt(dx * dx + dy * dy);
+        if (distance <= end.radius)
+        {
+            return true;
+        }
+    }
+    return false;
+}
+
 void GamePage::updateTowers()
 {
     // 更新每个防御塔的敌人列表
-    for (Tower *tower : towers)
+    for (QPointer<Tower> tower : towers)
     {
         if (!tower)
             continue;
 
         // 收集范围内的敌人
-        QList<Enemy *> enemiesInRange;
-        for (Enemy *enemy : enemies)
+        QList<QPointer<Enemy>> enemiesInRange;
+        for (QPointer<Enemy> enemy : enemies)
         {
             if (!enemy)
                 continue;
@@ -479,16 +604,16 @@ void GamePage::updateTowers()
 void GamePage::removeDeadEntities()
 {
     // 移除死亡的敌人
-    QList<Enemy *> deadEnemies;
+    QList<QPointer<Enemy>> deadEnemies;
 
-    for (Enemy *enemy : enemies)
+    for (QPointer<Enemy> enemy : enemies)
     {
         if (!enemy)
             continue;
 
         if (enemy->getHealth() <= 0)
         {
-            // 敌人死亡，获得金币
+            killCount++;
             gold += enemy->getReward();
             goldLabel->setText(QString::number(gold));
 
@@ -503,7 +628,7 @@ void GamePage::removeDeadEntities()
     }
 
     // 延迟0.5秒后移除敌人实体
-    for (Enemy *enemy : deadEnemies)
+    for (QPointer<Enemy> enemy : deadEnemies)
     {
         enemies.removeOne(enemy);
         QTimer::singleShot(GameConfig::ENEMY_DEAD_KEEP_TIME, [this, enemy]()
@@ -523,14 +648,206 @@ void GamePage::checkGameOver()
         gameTimer->stop();
         enemySpawnTimer->stop();
         gameRunning = false;
-
-        QMessageBox::information(this, "游戏结束",
-                                 QString("游戏结束！\n你坚持到了第 %1 波\n获得了 %2 金币")
-                                     .arg(currentWave)
-                                     .arg(gold));
-
-        emit gameOver();
+        pauseAllEnemies();
+        pauseAllTowersAndBullets();
+        showGameOverDialog();
     }
+}
+
+void GamePage::showGameOverDialog()
+{
+    if (resultOverlay)
+    {
+        resultOverlay->deleteLater();
+        resultOverlay = nullptr;
+        resultPanel = nullptr;
+    }
+
+    resultOverlay = new QWidget(this);
+    resultOverlay->setGeometry(0, 0, width(), height());
+    resultOverlay->setStyleSheet("background-color: rgba(0, 0, 0, 180);");
+    resultOverlay->setAttribute(Qt::WA_TransparentForMouseEvents, false);
+
+    resultPanel = new QWidget(resultOverlay);
+    resultPanel->setFixedSize(500, 420);
+    resultPanel->setStyleSheet(
+        "QWidget {"
+        "   background: qlineargradient(x1:0, y1:0, x2:1, y2:1, stop:0 #ffffff, stop:1 #f5f5f5);"
+        "   border-radius: 20px;"
+        "   border: 1px solid #34495e;"
+        "}"
+    );
+    // 使用 QGraphicsDropShadowEffect 替代边框，避免遮挡文字
+    QGraphicsDropShadowEffect *shadowEffect = new QGraphicsDropShadowEffect();
+    shadowEffect->setBlurRadius(12);
+    shadowEffect->setColor(QColor(52, 73, 94, 200));
+    shadowEffect->setOffset(0, 2);
+    resultPanel->setGraphicsEffect(shadowEffect);
+    resultPanel->move((width() - resultPanel->width()) / 2, (height() - resultPanel->height()) / 2);
+
+    // 创建容器用于不透明度动画
+    QWidget *animContainer = new QWidget(resultPanel);
+    animContainer->setGeometry(resultPanel->rect());
+    animContainer->lower();
+
+    QGraphicsOpacityEffect *effect = new QGraphicsOpacityEffect(animContainer);
+    animContainer->setGraphicsEffect(effect);
+    effect->setOpacity(0.0);
+
+    QVBoxLayout *layout = new QVBoxLayout(resultPanel);
+    layout->setContentsMargins(36, 48, 36, 48);
+    layout->setSpacing(20);
+
+    // 标题
+    QLabel *titleLabel = new QLabel("游戏结束", resultPanel);
+    titleLabel->setAlignment(Qt::AlignCenter);
+    titleLabel->setFont(QFont("Microsoft YaHei", 32, QFont::Bold));
+    titleLabel->setStyleSheet("color: #2c3e50;");
+    titleLabel->setMinimumHeight(48);
+    layout->addWidget(titleLabel);
+
+    qint64 elapsedMs = elapsedTimer.isValid() ? elapsedTimer.elapsed() : 0;
+    int seconds = static_cast<int>(elapsedMs / 1000);
+
+    int score = killCount * 10 + currentWave * 50 + gold;
+    QString grade;
+    if (score >= 1200)
+        grade = "S";
+    else if (score >= 800)
+        grade = "A";
+    else if (score >= 400)
+        grade = "B";
+    else
+        grade = "C";
+
+    // 数据标签
+    QLabel *killLabel = new QLabel(QString("击杀敌人数量：%1").arg(killCount), resultPanel);
+    QLabel *timeLabel = new QLabel(QString("游戏时长：%1 秒").arg(seconds), resultPanel);
+    QLabel *waveLabel = new QLabel(QString("到达波次：第 %1 波").arg(currentWave), resultPanel);
+    QLabel *scoreLabel = new QLabel(QString("得分：%1").arg(score), resultPanel);
+    QLabel *gradeLabel = new QLabel(QString("评级：%1").arg(grade), resultPanel);
+
+    for (QLabel *label : {killLabel, timeLabel, waveLabel, scoreLabel, gradeLabel})
+    {
+        label->setAlignment(Qt::AlignCenter);
+        label->setFont(QFont("Microsoft YaHei", 16, QFont::Normal));
+        label->setStyleSheet("color: #34495e; padding: 8px 0px;");
+        label->setMinimumHeight(36);
+        layout->addWidget(label);
+    }
+
+    // 评级样式增强
+    gradeLabel->setFont(QFont("Microsoft YaHei", 18, QFont::Bold));
+    if (grade == "S")
+        gradeLabel->setStyleSheet("color: #e74c3c; padding: 8px 0px; font-weight: bold;");
+    else if (grade == "A")
+        gradeLabel->setStyleSheet("color: #f39c12; padding: 8px 0px; font-weight: bold;");
+    else if (grade == "B")
+        gradeLabel->setStyleSheet("color: #3498db; padding: 8px 0px; font-weight: bold;");
+    else
+        gradeLabel->setStyleSheet("color: #95a5a6; padding: 8px 0px; font-weight: bold;");
+
+    layout->addSpacing(12);
+
+    // 按钮区域
+    QHBoxLayout *buttonLayout = new QHBoxLayout();
+    buttonLayout->setSpacing(20);
+    buttonLayout->setContentsMargins(0, 0, 0, 0);
+
+    QPushButton *restartButton = new QPushButton("重新开始", resultPanel);
+    QPushButton *menuButton = new QPushButton("返回主菜单", resultPanel);
+
+    restartButton->setMinimumHeight(48);
+    menuButton->setMinimumHeight(48);
+    restartButton->setMinimumWidth(150);
+    menuButton->setMinimumWidth(150);
+
+    restartButton->setFont(QFont("Microsoft YaHei", 14, QFont::Bold));
+    menuButton->setFont(QFont("Microsoft YaHei", 14, QFont::Bold));
+
+    restartButton->setStyleSheet(
+        "QPushButton {"
+        "   color: white;"
+        "   background-color: qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 #27ae60, stop:1 #229954);"
+        "   border-radius: 10px;"
+        "   padding: 8px;"
+        "   border: 2px solid #1e8449;"
+        "}"
+        "QPushButton:hover {"
+        "   background-color: qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 #2ecc71, stop:1 #27ae60);"
+        "}"
+        "QPushButton:pressed {"
+        "   background-color: #1e8449;"
+        "   border: 2px solid #145a32;"
+        "}");
+
+    menuButton->setStyleSheet(
+        "QPushButton {"
+        "   color: white;"
+        "   background-color: qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 #e74c3c, stop:1 #cb4335);"
+        "   border-radius: 10px;"
+        "   padding: 8px;"
+        "   border: 2px solid #c0392b;"
+        "}"
+        "QPushButton:hover {"
+        "   background-color: qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 #ec7063, stop:1 #e74c3c);"
+        "}"
+        "QPushButton:pressed {"
+        "   background-color: #c0392b;"
+        "   border: 2px solid #a93226;"
+        "}");
+
+    buttonLayout->addWidget(restartButton);
+    buttonLayout->addWidget(menuButton);
+    layout->addLayout(buttonLayout);
+
+    QPropertyAnimation *fadeIn = new QPropertyAnimation(effect, "opacity", resultPanel);
+    fadeIn->setDuration(300);
+    fadeIn->setStartValue(0.0);
+    fadeIn->setEndValue(1.0);
+    fadeIn->setEasingCurve(QEasingCurve::OutCubic);
+
+    QRect startRect = resultPanel->geometry();
+    int dw = startRect.width() / 8;
+    int dh = startRect.height() / 8;
+    QRect smallRect(startRect.adjusted(dw, dh, -dw, -dh));
+
+    resultPanel->setGeometry(smallRect);
+
+    QPropertyAnimation *scaleAnim = new QPropertyAnimation(resultPanel, "geometry", resultPanel);
+    scaleAnim->setDuration(300);
+    scaleAnim->setStartValue(smallRect);
+    scaleAnim->setEndValue(startRect);
+    scaleAnim->setEasingCurve(QEasingCurve::OutBack);
+
+    fadeIn->start(QAbstractAnimation::DeleteWhenStopped);
+    scaleAnim->start(QAbstractAnimation::DeleteWhenStopped);
+
+    connect(restartButton, &QPushButton::clicked, this, [this]()
+            {
+                if (resultOverlay)
+                {
+                    resultOverlay->deleteLater();
+                    resultOverlay = nullptr;
+                    resultPanel = nullptr;
+                }
+                resetGame();
+                startGame();
+            });
+
+    connect(menuButton, &QPushButton::clicked, this, [this]()
+            {
+                if (resultOverlay)
+                {
+                    resultOverlay->deleteLater();
+                    resultOverlay = nullptr;
+                    resultPanel = nullptr;
+                }
+                emit gameOver();
+            });
+
+    resultOverlay->show();
+    resultPanel->show();
 }
 
 void GamePage::checkNextWave()
@@ -553,8 +870,8 @@ void GamePage::checkNextWave()
 int GamePage::getWaveSpawnInterval() const
 {
     // 计算当前波次的敌人生成间隔
-    // 公式: max(WAVE_SPAWN_INTERVAL_MAX - 100*(currentWave-1), WAVE_SPAWN_INTERVAL_MIN)
-    int interval = GameConfig::WAVE_SPAWN_INTERVAL_MAX - 100 * (currentWave - 1);
+    // 公式: max(WAVE_SPAWN_INTERVAL_MAX - WAVE_SPAWN_INTERVAL_EACH*(currentWave-1), WAVE_SPAWN_INTERVAL_MIN)
+    int interval = GameConfig::WAVE_SPAWN_INTERVAL_MAX - GameConfig::WAVE_SPAWN_INTERVAL_EACH * (currentWave - 1);
     int minInterval = GameConfig::WAVE_SPAWN_INTERVAL_MIN;
 
     // 确保间隔不低于最小值
@@ -624,9 +941,16 @@ void GamePage::mousePressEvent(QMouseEvent *event)
 
     if (event->button() == Qt::LeftButton)
     {
+        // Check placement validity
+        if (placementValidator && !placementValidator->isPlacementAllowed(gridX, gridY))
+        {
+             showFloatingTip("此处禁止放置!", scenePos, Qt::red);
+             return;
+        }
+
         // 检查是否已经有防御塔
         bool towerExists = false;
-        for (Tower *tower : towers)
+        for (QPointer<Tower> tower : towers)
         {
             if (tower &&
                 qAbs(tower->x() - gridX) < gridSize / 2 &&
@@ -647,14 +971,14 @@ void GamePage::mousePressEvent(QMouseEvent *event)
                 tower->setPos(gridX, gridY);    // 显式设置位置
                 tower->setGameScene(gameScene); // 设置gameScene，用于发射子弹
                 towers.append(tower);
-                
+
                 // 添加底座层到场景
                 QGraphicsPixmapItem *baseItem = tower->getBaseItem();
                 if (baseItem)
                 {
                     gameScene->addItem(baseItem);
                 }
-                
+
                 gameScene->addItem(tower);
 
                 // 扣除金币
@@ -682,19 +1006,7 @@ void GamePage::mousePressEvent(QMouseEvent *event)
             else
             {
                 qDebug() << "Not enough gold to build tower";
-                // 可以添加金币不足的提示
-                QGraphicsTextItem *text = new QGraphicsTextItem("金币不足!");
-                text->setPos(scenePos);
-                text->setDefaultTextColor(Qt::red);
-                text->setFont(QFont("Arial", 12, QFont::Bold));
-                gameScene->addItem(text);
-
-                QTimer::singleShot(1000, [text]()
-                                   {
-                    if (text->scene()) {
-                        text->scene()->removeItem(text);
-                        delete text;
-                    } });
+                showFloatingTip("金币不足!", scenePos, Qt::red);
             }
         }
     }
@@ -712,46 +1024,99 @@ void GamePage::mouseMoveEvent(QMouseEvent *event)
     if (!gameRunning)
         return;
 
-    // 转换坐标
     QPoint viewPos = event->pos();
     QPoint viewGlobalPos = gameView->mapFromParent(viewPos);
 
     if (gameView->rect().contains(viewGlobalPos))
     {
         QPointF scenePos = gameView->mapToScene(viewGlobalPos);
+        updateHoverHighlight(scenePos);
+    }
+    else
+    {
+        updateHoverHighlight(QPointF(-1, -1));
+    }
 
-        // 计算网格位置
-        int gridSize = GameConfig::GRID_SIZE;
-        int gridX = int(scenePos.x() / gridSize) * gridSize;
-        int gridY = int(scenePos.y() / gridSize) * gridSize;
+    QWidget::mouseMoveEvent(event);
+}
 
-        // 可以在这里添加网格高亮效果
-        static QGraphicsRectItem *lastHighlight = nullptr;
+bool GamePage::eventFilter(QObject *obj, QEvent *event)
+{
+    if (obj == gameView->viewport() && event->type() == QEvent::MouseMove)
+    {
+        QMouseEvent *mouseEvent = static_cast<QMouseEvent *>(event);
+        QPoint viewPos = mouseEvent->pos();
+        QPointF scenePos = gameView->mapToScene(viewPos);
+        updateHoverHighlight(scenePos);
+    }
+    return QObject::eventFilter(obj, event);
+}
+
+void GamePage::updateHoverHighlight(const QPointF &scenePos)
+{
+    static QGraphicsRectItem *lastHighlight = nullptr;
+    static int lastGridX = -1;
+    static int lastGridY = -1;
+
+    int gridSize = GameConfig::GRID_SIZE;
+
+    if (scenePos.x() < 0 || scenePos.y() < 0 ||
+        scenePos.x() >= GameConfig::WINDOW_WIDTH ||
+        scenePos.y() >= GameConfig::WINDOW_HEIGHT)
+    {
         if (lastHighlight)
         {
             gameScene->removeItem(lastHighlight);
             delete lastHighlight;
             lastHighlight = nullptr;
         }
-
-        // 创建新的高亮
-        if (gridX >= 0 && gridY >= 0 && gridX < GameConfig::WINDOW_WIDTH && gridY < GameConfig::WINDOW_HEIGHT)
-        {
-            lastHighlight = new QGraphicsRectItem(gridX, gridY, gridSize, gridSize);
-            lastHighlight->setBrush(QBrush(QColor(255, 255, 255, 30)));
-            lastHighlight->setPen(QPen(QColor(255, 255, 255, 100), 2));
-            lastHighlight->setZValue(1000); // 确保在最上层
-            gameScene->addItem(lastHighlight);
-        }
+        lastGridX = lastGridY = -1;
+        return;
     }
 
-    QWidget::mouseMoveEvent(event);
+    int gridX = int(scenePos.x() / gridSize) * gridSize;
+    int gridY = int(scenePos.y() / gridSize) * gridSize;
+
+    if (gridX < 0 || gridY < 0 ||
+        gridX >= GameConfig::WINDOW_WIDTH ||
+        gridY >= GameConfig::WINDOW_HEIGHT)
+    {
+        if (lastHighlight)
+        {
+            gameScene->removeItem(lastHighlight);
+            delete lastHighlight;
+            lastHighlight = nullptr;
+        }
+        lastGridX = lastGridY = -1;
+        return;
+    }
+
+    if (lastHighlight && gridX == lastGridX && gridY == lastGridY)
+        return;
+
+    if (lastHighlight)
+    {
+        gameScene->removeItem(lastHighlight);
+        delete lastHighlight;
+        lastHighlight = nullptr;
+    }
+
+    lastHighlight = new QGraphicsRectItem(gridX, gridY, gridSize, gridSize);
+    lastHighlight->setBrush(QBrush(QColor(255, 255, 255, 30)));
+    lastHighlight->setPen(QPen(QColor(255, 255, 255, 100), 2));
+    lastHighlight->setZValue(1000);
+    gameScene->addItem(lastHighlight);
+
+    lastGridX = gridX;
+    lastGridY = gridY;
+
+    qDebug() << "Hover highlight at grid (" << gridX << "," << gridY << ")";
 }
 
 void GamePage::pauseAllEnemies()
 {
     // 暂停所有敌人的移动
-    for (Enemy *enemy : enemies)
+    for (QPointer<Enemy> enemy : enemies)
     {
         if (enemy)
         {
@@ -763,7 +1128,7 @@ void GamePage::pauseAllEnemies()
 void GamePage::resumeAllEnemies()
 {
     // 恢复所有敌人的移动（排除死亡状态）
-    for (Enemy *enemy : enemies)
+    for (QPointer<Enemy> enemy : enemies)
     {
         if (enemy)
         {
@@ -775,7 +1140,7 @@ void GamePage::resumeAllEnemies()
 void GamePage::pauseAllTowersAndBullets()
 {
     // 暂停所有塔的攻击
-    for (Tower *tower : towers)
+    for (QPointer<Tower> tower : towers)
     {
         if (tower)
         {
@@ -798,7 +1163,7 @@ void GamePage::pauseAllTowersAndBullets()
 void GamePage::resumeAllTowersAndBullets()
 {
     // 恢复所有塔的攻击
-    for (Tower *tower : towers)
+    for (QPointer<Tower> tower : towers)
     {
         if (tower)
         {

@@ -17,7 +17,8 @@ SOURCES += \
     src/mainwindow.cpp \
     src/resourcemanager.cpp \
     src/tower.cpp \
-    src/bullet.cpp
+    src/bullet.cpp \
+    src/placementvalidator.cpp
 
 HEADERS += \
     include/config.h \
@@ -28,7 +29,8 @@ HEADERS += \
     include/mainwindow.h \
     include/resourcemanager.h \
     include/tower.h \
-    include/bullet.h
+    include/bullet.h \
+    include/placementvalidator.h
 
 FORMS += \
     ui/mainwindow.ui

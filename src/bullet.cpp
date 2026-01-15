@@ -14,13 +14,17 @@
 #define M_PI 3.14159265358979323846
 #endif
 
-Bullet::Bullet(QPointF startPos, Enemy* target, int damage, QObject *parent)
+Bullet::Bullet(QPointF startPos, QPointer<Enemy> target, int damage, QObject *parent)
     : GameEntity(BULLET, parent)
     , target(target)
     , damage(damage)
     , speed(GameConfig::BULLET_SPEED)
+    , direction(0.0, -1.0)
+    , startPosition(startPos)
+    , travelledDistance(0.0f)
+    , lostTargetTimeMs(0)
 {
-    // 设置子弹位置
+    // 设置子弹位置为传入的中心点坐标
     setPos(startPos);
 
     // 从资源文件加载子弹图片
@@ -29,15 +33,28 @@ Bullet::Bullet(QPointF startPos, Enemy* target, int damage, QObject *parent)
     
     setPixmap(bulletPixmap);
     
-    // 设置图片的中心为旋转中心
+    // 设置图片的中心为旋转中心，并通过偏移让pos表示子弹中心（锚点为0.5,0.5）
     setTransformOriginPoint(bulletPixmap.width() / 2.0, bulletPixmap.height() / 2.0);
+    setOffset(-bulletPixmap.width() / 2.0, -bulletPixmap.height() / 2.0);
 
-    // 移动计时器
+    if (target && !target.isNull())
+    {
+        QPointF targetCenter = target->getCenterPosition();
+        QPointF dir = targetCenter - startPos;
+        qreal len = std::sqrt(dir.x() * dir.x() + dir.y() * dir.y());
+        if (len > 0.0)
+            direction = dir / len;
+    }
+
+    updateRotation();
+
     moveTimer = new QTimer(this);
     connect(moveTimer, &QTimer::timeout, this, &Bullet::onMoveTimer);
     moveTimer->start(GameConfig::BULLET_MOVE_INTERVAL);
 
-    qDebug() << "Bullet created at" << startPos << "targeting" << (target ? "valid" : "invalid");
+    qDebug() << "Bullet created at" << startPos
+             << "direction" << direction
+             << "target" << (target ? "valid" : "invalid");
 }
 
 Bullet::~Bullet()
@@ -54,66 +71,67 @@ void Bullet::update()
 
 void Bullet::onMoveTimer()
 {
-    // 如果目标被销毁或无效，删除子弹
-    if (!target) {
-        if (scene()) {
-            scene()->removeItem(this);
-        }
-        deleteLater();
-        return;
-    }
-
-    // 额外的安全检查：确保target仍然有效
-    if (target.isNull()) {
-        if (scene()) {
-            scene()->removeItem(this);
-        }
-        deleteLater();
-        return;
-    }
-
     QPointF currentPos = pos();
-    QPointF targetPos = target->pos();
-    QPointF direction = targetPos - currentPos;
-    qreal distance = std::sqrt(direction.x() * direction.x() + direction.y() * direction.y());
+    bool hasTarget = target && !target.isNull();
 
-    // 如果接近目标，造成伤害
-    if (distance < speed + 15) {
-        qDebug() << "Bullet hit target! Dealing" << damage << "damage";
-        target->setHealth(target->getHealth() - damage);
-        if (scene()) {
-            scene()->removeItem(this);
+    if (!hasTarget)
+    {
+        lostTargetTimeMs += GameConfig::BULLET_MOVE_INTERVAL;
+        if (lostTargetTimeMs >= GameConfig::BULLET_TARGET_LOST_TIMEOUT_MS)
+        {
+            if (scene())
+                scene()->removeItem(this);
+            deleteLater();
+            return;
         }
+    }
+
+    if (hasTarget)
+    {
+        QPointF targetCenter = target->getCenterPosition();
+        QPointF toTarget = targetCenter - currentPos;
+        qreal distanceToTarget = std::sqrt(toTarget.x() * toTarget.x() + toTarget.y() * toTarget.y());
+        if (distanceToTarget <= GameConfig::ENEMY_COLLISION_RADIUS + GameConfig::BULLET_COLLISION_RADIUS)
+        {
+            qDebug() << "Bullet hit target! Dealing" << damage << "damage";
+            emit hit(target, damage);
+            target->setHealth(target->getHealth() - damage);
+            if (scene())
+                scene()->removeItem(this);
+            deleteLater();
+            return;
+        }
+    }
+
+    QPointF delta = direction * speed;
+    QPointF nextPos = currentPos + delta;
+    setPos(nextPos);
+
+    travelledDistance += std::sqrt(delta.x() * delta.x() + delta.y() * delta.y());
+    if (travelledDistance >= GameConfig::BULLET_MAX_DISTANCE)
+    {
+        if (scene())
+            scene()->removeItem(this);
         deleteLater();
         return;
     }
 
-    // 向目标移动
-    if (distance > 0) {
-        direction /= distance;
-        setPos(currentPos + direction * speed);
-        
-        // 根据运动方向更新旋转角度
-        updateRotation();
+    if (nextPos.x() < -GameConfig::BULLET_SIZE ||
+        nextPos.x() > GameConfig::WINDOW_WIDTH + GameConfig::BULLET_SIZE ||
+        nextPos.y() < -GameConfig::BULLET_SIZE ||
+        nextPos.y() > GameConfig::WINDOW_HEIGHT + GameConfig::BULLET_SIZE)
+    {
+        if (scene())
+            scene()->removeItem(this);
+        deleteLater();
+        return;
     }
 }
 
 void Bullet::updateRotation()
 {
-    // 如果目标有效，计算指向目标的角度
-    if (target && !target.isNull()) {
-        QPointF currentPos = pos();
-        QPointF targetPos = target->pos();
-        QPointF direction = targetPos - currentPos;
-        
-        // 计算角度（atan2返回的角度是相对于x轴的，单位是弧度）
-        // 由于图片默认向上（-90度），我们需要调整
-        qreal angle = std::atan2(direction.y(), direction.x()) * 180.0 / M_PI;
-        
-        // 调整90度（因为图片向上，需要从0度旋转90度）
-        angle += 90.0;
-        
-        // 设置旋转角度
-        setRotation(angle);
-    }
+    QPointF dir = direction;
+    qreal angle = std::atan2(dir.y(), dir.x()) * 180.0 / M_PI;
+    angle += 90.0;
+    setRotation(angle);
 }

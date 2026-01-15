@@ -9,6 +9,7 @@
 #include <QPen>
 #include <QGraphicsScene>
 #include <QGraphicsPixmapItem>
+#include <QDebug>
 #include <math.h>
 #include <cmath>
 
@@ -17,7 +18,15 @@
 #endif
 
 Tower::Tower(TowerType type, QPointF position, QObject *parent)
-    : GameEntity(TOWER, parent), towerType(type), currentTarget(nullptr), gameScene(nullptr), baseItem(nullptr), currentRotation(0.0)
+    : GameEntity(TOWER, parent),
+      towerType(type),
+      currentTarget(nullptr),
+      gameScene(nullptr),
+      baseItem(nullptr),
+      currentRotation(0.0),
+      targetRotation(0.0),
+      rotationSpeed(5.0),
+      targetLocked(false)
 {
     // 设置基础属性
     switch (type)
@@ -79,11 +88,7 @@ Tower::~Tower()
 
 void Tower::update()
 {
-    if (currentTarget && !isInRange(currentTarget))
-    {
-        currentTarget = nullptr;
-    }
-
+    updateTargetLock();
     if (!currentTarget)
     {
         findTarget();
@@ -96,7 +101,7 @@ void Tower::update()
     }
 }
 
-void Tower::setTarget(Enemy *target)
+void Tower::setTarget(QPointer<Enemy> target)
 {
     currentTarget = target;
 }
@@ -105,14 +110,27 @@ void Tower::fire()
 {
     if (currentTarget && gameScene)
     {
-        // 创建子弹对象（不设置parent，以便子弹自己管理生命周期）
-        Bullet *bullet = new Bullet(this->pos(), currentTarget, damage, nullptr);
-        gameScene->addItem(bullet);
-        emit fired();
+        QPointF bulletStartPos = mapToScene(transformOriginPoint());
+
+        qDebug() << "Tower firing from center" << bulletStartPos;
+
+        // 创建子弹对象
+        QPointer<Bullet> bullet = new Bullet(bulletStartPos, currentTarget, damage, nullptr);
+        if (bullet)
+        {
+            gameScene->addItem(bullet);
+            targetLocked = true;
+            targetLockTimer.restart();
+            emit fired();
+        }
+        else
+        {
+            qWarning() << "Failed to create bullet";
+        }
     }
 }
 
-void Tower::setEnemiesInRange(const QList<Enemy *> &enemies)
+void Tower::setEnemiesInRange(const QList<QPointer<Enemy>> &enemies)
 {
     enemiesInRange = enemies;
     findTarget();
@@ -134,7 +152,7 @@ void Tower::onAttackTimer()
     }
 }
 
-bool Tower::isInRange(Enemy *enemy) const
+bool Tower::isInRange(QPointer<Enemy> enemy) const
 {
     if (!enemy)
         return false;
@@ -148,10 +166,10 @@ bool Tower::isInRange(Enemy *enemy) const
 
 void Tower::findTarget()
 {
-    Enemy *closestEnemy = nullptr;
+    QPointer<Enemy> closestEnemy = nullptr;
     qreal minDistance = range + 1; // 初始化为超出范围
 
-    for (Enemy *enemy : enemiesInRange)
+    for (QPointer<Enemy> enemy : enemiesInRange)
     {
         if (enemy && isInRange(enemy))
         {
@@ -172,31 +190,60 @@ void Tower::findTarget()
 
 void Tower::updateTowerRotation()
 {
-    // 如果目标有效，计算指向目标的角度并更新塔的旋转
-    if (currentTarget)
+    if (!currentTarget)
+        return;
+
+    QPointF towerPos = pos();
+    QRectF rect = boundingRect();
+    QPointF towerCenter(towerPos.x() + rect.width() / 2.0, towerPos.y() + rect.height() / 2.0);
+    QPointF targetCenter = currentTarget->getCenterPosition();
+    QPointF direction = targetCenter - towerCenter;
+
+    // 计算角度（atan2返回的角度是相对于x轴的，单位是弧度）
+    // 由于图片默认向上，我们需要调整
+    qreal angle = std::atan2(direction.y(), direction.x()) * 180.0 / M_PI;
+
+    // 调整90度（因为图片向上，需要从0度旋转90度）
+    angle += 90.0;
+
+    targetRotation = angle;
+
+    qreal delta = targetRotation - currentRotation;
+    while (delta > 180.0)
+        delta -= 360.0;
+    while (delta < -180.0)
+        delta += 360.0;
+
+    qreal maxStep = rotationSpeed;
+    if (delta > maxStep)
+        delta = maxStep;
+    else if (delta < -maxStep)
+        delta = -maxStep;
+
+    currentRotation += delta;
+    setRotation(currentRotation);
+
+    if (baseItem && scene())
+        baseItem->update();
+}
+
+void Tower::updateTargetLock()
+{
+    if (currentTarget && !isInRange(currentTarget))
+        currentTarget = nullptr;
+
+    if (targetLocked)
     {
-        QPointF currentPos = pos();
-        QPointF targetPos = currentTarget->pos();
-        QPointF direction = targetPos - currentPos;
-
-        // 计算角度（atan2返回的角度是相对于x轴的，单位是弧度）
-        // 由于图片默认向上，我们需要调整
-        qreal angle = std::atan2(direction.y(), direction.x()) * 180.0 / M_PI;
-
-        // 调整90度（因为图片向上，需要从0度旋转90度）
-        angle += 90.0;
-
-        // 仅当角度实际改变时，才更新旋转
-        if (angle != currentRotation)
+        if (!currentTarget)
         {
-            currentRotation = angle;
-            setRotation(angle);
-
-            // 重绘底座，防止遗留上次角度的痕迹
-            if (baseItem && scene())
-            {
-                baseItem->update();
-            }
+            targetLocked = false;
+            return;
+        }
+        if (targetLockTimer.isValid() &&
+            targetLockTimer.hasExpired(400))
+        {
+            targetLocked = false;
+            currentTarget = nullptr;
         }
     }
 }
