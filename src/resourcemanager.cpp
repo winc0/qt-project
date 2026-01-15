@@ -75,6 +75,36 @@ QPixmap ResourceManager::getEnemyPixmap(int enemyType, EnemyState state) const
     return pixmap.scaled(GameConfig::ENEMY_SIZE, GameConfig::ENEMY_SIZE, Qt::KeepAspectRatio, Qt::SmoothTransformation);
 }
 
+QPixmap ResourceManager::getUserPixmap(UserState state) const
+{
+    QString stateName;
+    switch (state)
+    {
+    case USER_WALK:
+        stateName = "walk";
+        break;
+    case USER_DEAD:
+        stateName = "dead";
+        break;
+    default:
+        stateName = "walk";
+        break;
+    }
+
+    QString resourcePath = QString(":/image/user/user_%1.png").arg(stateName);
+    QPixmap pixmap(resourcePath);
+
+    if (pixmap.isNull())
+    {
+        return getDefaultUserPixmap();
+    }
+
+    return pixmap.scaled(GameConfig::ENEMY_SIZE,
+                         GameConfig::ENEMY_SIZE,
+                         Qt::KeepAspectRatio,
+                         Qt::SmoothTransformation);
+}
+
 QPixmap ResourceManager::getDefaultEnemyPixmap() const
 {
     QPixmap pixmap(30, 30);
@@ -89,6 +119,20 @@ QPixmap ResourceManager::getDefaultEnemyPixmap() const
     painter.setPen(QPen(Qt::white, 1));
     painter.drawEllipse(8, 8, 4, 4);
     painter.drawEllipse(18, 8, 4, 4);
+
+    return pixmap;
+}
+
+QPixmap ResourceManager::getDefaultUserPixmap() const
+{
+    QPixmap pixmap(GameConfig::ENEMY_SIZE, GameConfig::ENEMY_SIZE);
+    pixmap.fill(Qt::transparent);
+
+    QPainter painter(&pixmap);
+    painter.setRenderHint(QPainter::Antialiasing);
+    painter.setBrush(QBrush(QColor(52, 152, 219)));
+    painter.setPen(QPen(Qt::darkBlue, 2));
+    painter.drawEllipse(4, 4, GameConfig::ENEMY_SIZE - 8, GameConfig::ENEMY_SIZE - 8);
 
     return pixmap;
 }
@@ -389,6 +433,7 @@ void ResourceManager::loadDefaultPixmaps()
     pixmapCache["enemy_default"] = getDefaultEnemyPixmap();
     pixmapCache["tower_default"] = getDefaultTowerPixmap();
     pixmapCache["background_default"] = getDefaultBackground();
+    pixmapCache["user_default"] = getDefaultUserPixmap();
 
     // 创建子弹图片
     QPixmap bulletPixmap(10, 10);

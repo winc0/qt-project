@@ -38,6 +38,7 @@ GamePage::GamePage(QWidget *parent)
       placementValidator(nullptr),
       gameManager(new GameManager(this)),
       currentMapId(GameConfig::MAP1),
+      userItem(nullptr),
       resultOverlay(nullptr),
       resultPanel(nullptr),
       pauseOverlay(nullptr),
@@ -59,6 +60,19 @@ GamePage::GamePage(QWidget *parent)
     connect(gameManager, &GameManager::livesChanged, this, [this](int lives) {
         if (livesLabel)
             livesLabel->setText(QString::number(lives));
+
+        if (userItem)
+        {
+            ResourceManager &rm = ResourceManager::instance();
+            if (lives <= 1)
+            {
+                userItem->setPixmap(rm.getUserPixmap(ResourceManager::USER_DEAD));
+            }
+            else
+            {
+                userItem->setPixmap(rm.getUserPixmap(ResourceManager::USER_WALK));
+            }
+        }
     });
     connect(gameManager, &GameManager::waveChanged, this, [this](int wave) {
         if (waveLabel)
@@ -156,6 +170,12 @@ GamePage::GamePage(QWidget *parent)
 
 GamePage::~GamePage()
 {
+    if (userItem && gameScene)
+    {
+        gameScene->removeItem(userItem);
+    }
+    delete userItem;
+    userItem = nullptr;
     qDeleteAll(placementAreaItems);
     placementAreaItems.clear();
     delete placementValidator;
@@ -358,6 +378,25 @@ void GamePage::drawBackground()
     QGraphicsPixmapItem *backgroundItem = new QGraphicsPixmapItem(background);
     backgroundItem->setZValue(-100); // 最底层
     gameScene->addItem(backgroundItem);
+
+    if (!endPointAreas.isEmpty())
+    {
+        const GameConfig::EndPointConfig &end = endPointAreas.first();
+        QPixmap userPixmap = rm.getUserPixmap(ResourceManager::USER_WALK);
+
+        if (userItem && userItem->scene())
+        {
+            gameScene->removeItem(userItem);
+            delete userItem;
+            userItem = nullptr;
+        }
+
+        userItem = new QGraphicsPixmapItem(userPixmap);
+        QRectF rect = userItem->boundingRect();
+        userItem->setPos(end.x - rect.width() / 2, end.y - rect.height() / 2);
+        userItem->setZValue(-40);
+        gameScene->addItem(userItem);
+    }
 
     // // 绘制路径
     // if (!pathPoints.isEmpty())

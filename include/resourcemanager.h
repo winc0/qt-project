@@ -24,6 +24,11 @@ public:
         BULLET_MAGIC = 2
     };
 
+    enum UserState {
+        USER_WALK = 0,
+        USER_DEAD = 1
+    };
+
     static ResourceManager& instance();
 
     bool loadResources();
@@ -40,6 +45,8 @@ public:
     // 敌人图片加载
     QPixmap getEnemyPixmap(int enemyType, EnemyState state) const;
 
+    QPixmap getUserPixmap(UserState state) const;
+
     QPixmap getBulletPixmap() const;
     QPixmap getTowerPixmap() const;
     QPixmap getTowerBasePixmap() const;
@@ -52,6 +59,7 @@ public:
     QPixmap getDefaultTowerPixmap() const;
     QPixmap getDefaultTowerBasePixmap() const;
     QPixmap getDefaultBulletPixmap() const;
+    QPixmap getDefaultUserPixmap() const;
     QPixmap getDefaultBackground() const;
     QPixmap getGameMap() const;
     QPixmap getGameMap(GameConfig::MapId mapId) const;

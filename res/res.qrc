@@ -35,4 +35,10 @@
     <file>magic_tower_base.png</file>
     <file>cannon_tower_base.png</file>
   </qresource>
+  <qresource prefix="/image/user">
+    <file>user_idle.png</file>
+    <file>user_jump.png</file>
+    <file>user_walk.png</file>
+    <file>user_dead.png</file>
+  </qresource>
 </RCC>

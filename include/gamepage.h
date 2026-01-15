@@ -77,6 +77,7 @@ private:
     // 游戏状态
     QGraphicsScene *gameScene;
     QGraphicsView *gameView;
+    QGraphicsPixmapItem *userItem;
     PlacementValidator *placementValidator;
     GameManager *gameManager;
 

@@ -13,7 +13,7 @@ namespace GameConfig
     const int GRID_SIZE = 40;
 
     // 游戏设置
-    const int INITIAL_LIVES = 20;
+    const int INITIAL_LIVES = 2;
     const int INITIAL_GOLD = 300;
     const int ENEMY_REWARD = 15;
 
