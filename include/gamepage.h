@@ -12,6 +12,7 @@
 #include "tower.h"
 #include "bullet.h"
 #include "config.h"
+#include "gamemanager.h"
 
 class QLabel;
 class QPushButton;
@@ -37,8 +38,6 @@ signals:
     void returnToMainMenu();
 
 public slots:
-    void spawnEnemy();
-    void updateGame();
 protected:
     void mouseMoveEvent(QMouseEvent *event) override;
     bool eventFilter(QObject *obj, QEvent *event) override;
@@ -46,20 +45,13 @@ private:
     void initGameScene();
     void initUI();
     void createPath();
-    void checkGameOver();
     void showGameOverDialog();
 
     // 绘制游戏元素
     void drawBackground();
     void drawGrid();
 
-    // 游戏逻辑
-    void updateEnemies();
-    void updateTowers();
-    void removeDeadEntities();
-    void checkNextWave();  // 检查是否应该进入下一波
-    int getWaveSpawnInterval() const;  // 根据当前波次获取敌人生成间隔
-    bool isEnemyAtAnyEndPoint(QPointer<Enemy> enemy) const;
+    // 游戏逻辑（UI 相关）
     void updateHoverHighlight(const QPointF &scenePos);
     void initPlacementValidator();
     void drawPlacementAreas();
@@ -80,22 +72,7 @@ private:
     QGraphicsScene *gameScene;
     QGraphicsView *gameView;
     PlacementValidator *placementValidator;
-
-    // 游戏元素容器
-    QList<QPointer<Enemy>> enemies;
-    QList<QPointer<Tower>> towers;
-    QList<QPointer<Bullet>> bullets;
-
-    // 游戏资源
-    int gold;
-    int lives;
-    int currentWave;
-    int enemiesSpawnedThisWave;
-    bool waveSpawnComplete;  // 标记当前波次是否已经生成所有敌人
-
-    // 定时器
-    QTimer *gameTimer;
-    QTimer *enemySpawnTimer;
+    GameManager *gameManager;
 
     // UI元素
     QWidget *controlPanel;
@@ -115,11 +92,8 @@ private:
     // 路径点
     QVector<QPointF> pathPoints;
 
-    bool isPaused;
-    bool gameRunning;
     GameConfig::MapId currentMapId;
     QVector<GameConfig::EndPointConfig> endPointAreas;
-    int killCount;
     QElapsedTimer elapsedTimer;
     QList<QGraphicsRectItem *> placementAreaItems;
 };

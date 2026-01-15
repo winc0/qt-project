@@ -11,6 +11,7 @@ CONFIG += c++11
 SOURCES += \
     src/enemy.cpp \
     src/gameentity.cpp \
+    src/gamemanager.cpp \
     src/gamepage.cpp \
     src/main.cpp \
     src/mainmenupage.cpp \
@@ -24,6 +25,7 @@ HEADERS += \
     include/config.h \
     include/enemy.h \
     include/gameentity.h \
+    include/gamemanager.h \
     include/gamepage.h \
     include/mainmenupage.h \
     include/mainwindow.h \

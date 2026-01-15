@@ -2,6 +2,7 @@
 #include "include/resourcemanager.h"
 #include "include/config.h"
 #include "include/mainwindow.h"
+#include "include/gamemanager.h"
 
 #include <QMouseEvent>
 #include <QGraphicsSceneMouseEvent>
@@ -27,18 +28,11 @@ GamePage::GamePage(QWidget *parent)
     : QWidget(parent),
       gameScene(nullptr),
       gameView(nullptr),
-      gold(GameConfig::INITIAL_GOLD),
-      lives(GameConfig::INITIAL_LIVES),
-      currentWave(1),
-      waveSpawnComplete(false),
-      enemiesSpawnedThisWave(0),
-      isPaused(false),
-      gameRunning(false),
+      placementValidator(nullptr),
+      gameManager(new GameManager(this)),
       currentMapId(GameConfig::MAP_DEFAULT),
       resultOverlay(nullptr),
-      resultPanel(nullptr),
-      placementValidator(nullptr),
-      killCount(0)
+      resultPanel(nullptr)
 {
     qDebug() << "GamePage constructor called";
 
@@ -49,6 +43,61 @@ GamePage::GamePage(QWidget *parent)
     initGameScene();
     createPath();
     initPlacementValidator();
+
+    gameManager->initialize(currentMapId, pathPoints, endPointAreas);
+
+    connect(gameManager, &GameManager::goldChanged, this, [this](int gold) {
+        if (goldLabel)
+            goldLabel->setText(QString::number(gold));
+    });
+    connect(gameManager, &GameManager::livesChanged, this, [this](int lives) {
+        if (livesLabel)
+            livesLabel->setText(QString::number(lives));
+    });
+    connect(gameManager, &GameManager::waveChanged, this, [this](int wave) {
+        if (waveLabel)
+            waveLabel->setText(QString("第 %1 波").arg(wave));
+    });
+    connect(gameManager, &GameManager::enemySpawnRequested, this, [this](QPointer<Enemy> enemy) {
+        if (enemy && gameScene)
+        {
+            gameScene->addItem(enemy);
+        }
+    });
+    connect(gameManager, &GameManager::enemyReachedEnd, this, [this](QPointer<Enemy> enemy) {
+        if (enemy && gameScene)
+        {
+            gameScene->removeItem(enemy);
+            enemy->deleteLater();
+        }
+    });
+    connect(gameManager, &GameManager::enemyDied, this, [this](QPointer<Enemy> enemy) {
+        if (enemy && gameScene)
+        {
+            QTimer::singleShot(GameConfig::ENEMY_DEAD_KEEP_TIME, [this, enemy]() {
+                if (enemy && gameScene)
+                {
+                    gameScene->removeItem(enemy);
+                    enemy->deleteLater();
+                }
+            });
+        }
+    });
+    connect(gameManager, &GameManager::towerBuilt, this, [this](QPointer<Tower> tower) {
+        if (!tower || !gameScene)
+            return;
+
+        QGraphicsPixmapItem *baseItem = tower->getBaseItem();
+        if (baseItem)
+        {
+            gameScene->addItem(baseItem);
+        }
+
+        gameScene->addItem(tower);
+    });
+    connect(gameManager, &GameManager::gameOver, this, [this]() {
+        showGameOverDialog();
+    });
 
     qDebug() << "GamePage initialized, size:" << size();
 }
@@ -96,8 +145,7 @@ void GamePage::initUI()
     goldTitle->setStyleSheet("color: #FFD700;");
     goldTitle->setAlignment(Qt::AlignCenter);
 
-    // 金币数量
-    goldLabel = new QLabel(QString("%1").arg(gold), controlPanel);
+    goldLabel = new QLabel(QString::number(gameManager->getGold()), controlPanel);
     goldLabel->setGeometry(80, 40, 120, 40);
     goldLabel->setFont(numberFont);
     goldLabel->setStyleSheet("color: #FFD700; font-weight: bold;");
@@ -111,8 +159,7 @@ void GamePage::initUI()
     lifeTitle->setStyleSheet("color: #FF4444;");
     lifeTitle->setAlignment(Qt::AlignCenter);
 
-    // 生命数量
-    livesLabel = new QLabel(QString("%1").arg(lives), controlPanel);
+    livesLabel = new QLabel(QString::number(gameManager->getLives()), controlPanel);
     livesLabel->setGeometry(240, 40, 120, 40);
     livesLabel->setFont(numberFont);
     livesLabel->setStyleSheet("color: #FF4444; font-weight: bold;");
@@ -126,8 +173,7 @@ void GamePage::initUI()
     waveTitle->setStyleSheet("color: #44AAFF;");
     waveTitle->setAlignment(Qt::AlignCenter);
 
-    // 波次数值
-    waveLabel = new QLabel(QString("第 %1 波").arg(currentWave), controlPanel);
+    waveLabel = new QLabel(QString("第 %1 波").arg(gameManager->getCurrentWave()), controlPanel);
     waveLabel->setGeometry(400, 40, 120, 40);
     waveLabel->setFont(numberFont);
     waveLabel->setStyleSheet("color: #44AAFF; font-weight: bold;");
@@ -214,13 +260,6 @@ void GamePage::initGameScene()
 
     // 将控制面板提升到最前面（在gameView添加后）
     controlPanel->raise();
-
-    // 创建定时器
-    gameTimer = new QTimer(this);
-    connect(gameTimer, &QTimer::timeout, this, &GamePage::updateGame);
-
-    enemySpawnTimer = new QTimer(this);
-    connect(enemySpawnTimer, &QTimer::timeout, this, &GamePage::spawnEnemy);
 
     qDebug() << "Game scene initialized, view size:" << gameView->size();
 }
@@ -369,289 +408,66 @@ void GamePage::createPath()
 
 void GamePage::startGame()
 {
-    if (gameRunning)
+    if (!gameManager)
         return;
 
-    killCount = 0;
     elapsedTimer.restart();
-
-    gameRunning = true;
-    isPaused = false;
     pauseButton->setText("暂停");
-
-    // 启动游戏循环
-    gameTimer->start(16); // 约60FPS
-
-    // 启动敌人生成器，根据当前波次设置间隔
-    enemySpawnTimer->start(getWaveSpawnInterval());
-
-    qDebug() << "游戏开始!";
+    gameManager->startGame();
 }
 
 void GamePage::pauseGame()
 {
-    if (!gameRunning)
+    if (!gameManager)
         return;
 
-    if (isPaused)
+    gameManager->pauseGame();
+
+    if (gameManager->isPaused())
     {
-        // 恢复游戏
-        gameTimer->start(16);
-        enemySpawnTimer->start(getWaveSpawnInterval());
-        resumeAllEnemies();
-        resumeAllTowersAndBullets();
-        pauseButton->setText("暂停");
-        isPaused = false;
-        qDebug() << "游戏继续";
-    }
-    else
-    {
-        // 暂停游戏
-        gameTimer->stop();
-        enemySpawnTimer->stop();
         pauseAllEnemies();
         pauseAllTowersAndBullets();
         pauseButton->setText("继续");
-        isPaused = true;
-        qDebug() << "游戏暂停";
+    }
+    else
+    {
+        resumeAllEnemies();
+        resumeAllTowersAndBullets();
+        pauseButton->setText("暂停");
     }
 }
 
 void GamePage::resetGame()
 {
-    // 停止所有定时器
-    if (gameTimer && gameTimer->isActive())
-        gameTimer->stop();
-    if (enemySpawnTimer && enemySpawnTimer->isActive())
-        enemySpawnTimer->stop();
-
-    // 清理所有敌人
-    for (QPointer<Enemy> enemy : enemies)
-    {
-        if (enemy)
-        {
-            gameScene->removeItem(enemy);
-            enemy->deleteLater();
-        }
-    }
-    enemies.clear();
-
-    // 清理所有防御塔
-    for (QPointer<Tower> tower : towers)
-    {
-        if (tower)
-        {
-            gameScene->removeItem(tower);
-            tower->deleteLater();
-        }
-    }
-    towers.clear();
-
-    // 重置游戏状态
-    gold = GameConfig::INITIAL_GOLD;
-    lives = GameConfig::INITIAL_LIVES;
-    currentWave = 1;
-    enemiesSpawnedThisWave = 0;
-    waveSpawnComplete = false;
-    gameRunning = false;
-    isPaused = false;
-    killCount = 0;
-
-    // 更新UI显示
-    goldLabel->setText(QString::number(gold));
-    livesLabel->setText(QString::number(lives));
-    waveLabel->setText(QString("第 %1 波").arg(currentWave));
-
-    qDebug() << "游戏重置";
-}
-
-void GamePage::spawnEnemy()
-{
-    if (!gameRunning || isPaused)
+    if (!gameManager || !gameScene)
         return;
 
-    // 检查当前波次是否已经生成足够敌人
-    if (enemiesSpawnedThisWave >= GameConfig::WAVE_ENEMY_COUNT * currentWave)
+    gameManager->resetGame();
+
+    QList<QGraphicsItem *> items = gameScene->items();
+    for (QGraphicsItem *item : items)
     {
-        // 只在第一次生成够了敌人时记录
-        if (!waveSpawnComplete)
-        {
-            waveSpawnComplete = true;
-            qDebug() << "第" << currentWave << "波敌人已全部生成";
-        }
-        return;
-    }
-
-    // 创建新敌人
-    QPointer<Enemy> enemy = new Enemy(0, this); // 类型0:基础敌人
-    enemy->setPath(pathPoints);
-
-    // 添加到场景和列表
-    gameScene->addItem(enemy);
-    enemies.append(enemy);
-    enemiesSpawnedThisWave++;
-
-    // 连接敌人信号
-    // 注意：需要在Enemy类中添加reachedEndPoint信号
-
-    qDebug() << "生成敌人，当前敌人数量:" << enemies.size()
-             << "，本波已生成:" << enemiesSpawnedThisWave;
-}
-
-void GamePage::updateGame()
-{
-    if (!gameRunning || isPaused)
-        return;
-
-    // 更新所有敌人
-    updateEnemies();
-
-    // 更新所有防御塔
-    updateTowers();
-
-    // 清理死亡实体
-    removeDeadEntities();
-
-    // 检查是否应该进入下一波
-    checkNextWave();
-
-    // 检查游戏结束
-    checkGameOver();
-}
-
-void GamePage::updateEnemies()
-{
-    QList<QPointer<Enemy>> enemiesToRemove;
-
-    for (QPointer<Enemy> enemy : enemies)
-    {
-        if (!enemy)
+        if (!item)
             continue;
 
-        enemy->update();
+        Enemy *enemy = dynamic_cast<Enemy *>(item);
+        Tower *tower = dynamic_cast<Tower *>(item);
+        Bullet *bullet = dynamic_cast<Bullet *>(item);
 
-        if (isEnemyAtAnyEndPoint(enemy))
+        if (enemy || tower || bullet)
         {
-            // 敌人到达终点，扣减生命值
-            lives--;
-            livesLabel->setText(QString::number(lives));
-
-            enemiesToRemove.append(enemy);
-            gameScene->removeItem(enemy);
-
-            qDebug() << "敌人到达终点，剩余生命:" << lives;
+            gameScene->removeItem(item);
+            QObject *obj = dynamic_cast<QObject *>(item);
+            if (obj)
+                obj->deleteLater();
+            else
+                delete item;
         }
     }
 
-    // 移除到达终点的敌人
-    for (QPointer<Enemy> enemy : enemiesToRemove)
-    {
-        enemies.removeOne(enemy);
-        enemy->deleteLater();
-    }
-}
-
-bool GamePage::isEnemyAtAnyEndPoint(QPointer<Enemy> enemy) const
-{
-    if (!enemy || endPointAreas.isEmpty())
-        return false;
-
-    QPointF enemyCenter = enemy->getCenterPosition();
-    for (const GameConfig::EndPointConfig &end : endPointAreas)
-    {
-        qreal dx = enemyCenter.x() - end.x;
-        qreal dy = enemyCenter.y() - end.y;
-        qreal distance = std::sqrt(dx * dx + dy * dy);
-        if (distance <= end.radius)
-        {
-            return true;
-        }
-    }
-    return false;
-}
-
-void GamePage::updateTowers()
-{
-    // 更新每个防御塔的敌人列表
-    for (QPointer<Tower> tower : towers)
-    {
-        if (!tower)
-            continue;
-
-        // 收集范围内的敌人
-        QList<QPointer<Enemy>> enemiesInRange;
-        for (QPointer<Enemy> enemy : enemies)
-        {
-            if (!enemy)
-                continue;
-
-            qreal dx = enemy->x() - tower->x();
-            qreal dy = enemy->y() - tower->y();
-            qreal distance = std::sqrt(dx * dx + dy * dy);
-
-            if (distance <= tower->getRange())
-            {
-                enemiesInRange.append(enemy);
-            }
-        }
-
-        // 设置防御塔的攻击目标
-        tower->setEnemiesInRange(enemiesInRange);
-        tower->update();
-    }
-}
-
-void GamePage::removeDeadEntities()
-{
-    // 移除死亡的敌人
-    QList<QPointer<Enemy>> deadEnemies;
-
-    for (QPointer<Enemy> enemy : enemies)
-    {
-        if (!enemy)
-            continue;
-
-        if (enemy->getHealth() <= 0)
-        {
-            killCount++;
-            gold += enemy->getReward();
-            goldLabel->setText(QString::number(gold));
-
-            // 设置敌人为死亡状态
-            enemy->setState(ResourceManager::ENEMY_DEAD);
-
-            deadEnemies.append(enemy);
-
-            qDebug() << "敌人死亡，获得金币:" << enemy->getReward()
-                     << "，当前金币:" << gold;
-        }
-    }
-
-    // 延迟0.5秒后移除敌人实体
-    for (QPointer<Enemy> enemy : deadEnemies)
-    {
-        enemies.removeOne(enemy);
-        QTimer::singleShot(GameConfig::ENEMY_DEAD_KEEP_TIME, [this, enemy]()
-                           {
-            if (enemy && gameScene)
-            {
-                gameScene->removeItem(enemy);
-                enemy->deleteLater();
-            } });
-    }
-}
-
-void GamePage::checkGameOver()
-{
-    if (lives <= 0)
-    {
-        gameTimer->stop();
-        enemySpawnTimer->stop();
-        gameRunning = false;
-        pauseAllEnemies();
-        pauseAllTowersAndBullets();
-        showGameOverDialog();
-    }
+    goldLabel->setText(QString::number(gameManager->getGold()));
+    livesLabel->setText(QString::number(gameManager->getLives()));
+    waveLabel->setText(QString("第 %1 波").arg(gameManager->getCurrentWave()));
 }
 
 void GamePage::showGameOverDialog()
@@ -709,7 +525,11 @@ void GamePage::showGameOverDialog()
     qint64 elapsedMs = elapsedTimer.isValid() ? elapsedTimer.elapsed() : 0;
     int seconds = static_cast<int>(elapsedMs / 1000);
 
-    int score = killCount * 10 + currentWave * 50 + gold;
+    int kill = gameManager ? gameManager->getKillCount() : 0;
+    int wave = gameManager ? gameManager->getCurrentWave() : 1;
+    int gold = gameManager ? gameManager->getGold() : 0;
+
+    int score = kill * 10 + wave * 50 + gold;
     QString grade;
     if (score >= 1200)
         grade = "S";
@@ -721,9 +541,9 @@ void GamePage::showGameOverDialog()
         grade = "C";
 
     // 数据标签
-    QLabel *killLabel = new QLabel(QString("击杀敌人数量：%1").arg(killCount), resultPanel);
+    QLabel *killLabel = new QLabel(QString("击杀敌人数量：%1").arg(kill), resultPanel);
     QLabel *timeLabel = new QLabel(QString("游戏时长：%1 秒").arg(seconds), resultPanel);
-    QLabel *waveLabel = new QLabel(QString("到达波次：第 %1 波").arg(currentWave), resultPanel);
+    QLabel *waveLabel = new QLabel(QString("到达波次：第 %1 波").arg(wave), resultPanel);
     QLabel *scoreLabel = new QLabel(QString("得分：%1").arg(score), resultPanel);
     QLabel *gradeLabel = new QLabel(QString("评级：%1").arg(grade), resultPanel);
 
@@ -850,43 +670,9 @@ void GamePage::showGameOverDialog()
     resultPanel->show();
 }
 
-void GamePage::checkNextWave()
-{
-    // 如果当前波次已经生成了所有敌人，并且敌人列表为空，进入下一波
-    if (waveSpawnComplete && enemies.isEmpty())
-    {
-        currentWave++;
-        enemiesSpawnedThisWave = 0;
-        waveSpawnComplete = false;
-        waveLabel->setText(QString("第 %1 波").arg(currentWave));
-
-        // 更新敌人生成定时器的间隔
-        int newInterval = getWaveSpawnInterval();
-        enemySpawnTimer->setInterval(newInterval);
-        qDebug() << "进入第" << currentWave << "波，生成间隔已更新为:" << newInterval << "ms";
-    }
-}
-
-int GamePage::getWaveSpawnInterval() const
-{
-    // 计算当前波次的敌人生成间隔
-    // 公式: max(WAVE_SPAWN_INTERVAL_MAX - WAVE_SPAWN_INTERVAL_EACH*(currentWave-1), WAVE_SPAWN_INTERVAL_MIN)
-    int interval = GameConfig::WAVE_SPAWN_INTERVAL_MAX - GameConfig::WAVE_SPAWN_INTERVAL_EACH * (currentWave - 1);
-    int minInterval = GameConfig::WAVE_SPAWN_INTERVAL_MIN;
-
-    // 确保间隔不低于最小值
-    if (interval < minInterval)
-    {
-        interval = minInterval;
-    }
-
-    qDebug() << "第" << currentWave << "波的生成间隔:" << interval << "ms";
-    return interval;
-}
-
 void GamePage::mousePressEvent(QMouseEvent *event)
 {
-    if (!gameRunning)
+    if (!gameManager || !gameManager->isGameRunning())
         return;
 
     // 将鼠标点击位置从视图坐标转换到场景坐标
@@ -948,9 +734,8 @@ void GamePage::mousePressEvent(QMouseEvent *event)
              return;
         }
 
-        // 检查是否已经有防御塔
         bool towerExists = false;
-        for (QPointer<Tower> tower : towers)
+        for (QPointer<Tower> tower : gameManager->getTowers())
         {
             if (tower &&
                 qAbs(tower->x() - gridX) < gridSize / 2 &&
@@ -964,50 +749,36 @@ void GamePage::mousePressEvent(QMouseEvent *event)
 
         if (!towerExists)
         {
-            // 检查是否有足够金币建造防御塔
-            if (gold >= 100)
-            { // 箭塔价格100
-                Tower *tower = new Tower(Tower::ARROW_TOWER, QPointF(gridX, gridY), this);
-                tower->setPos(gridX, gridY);    // 显式设置位置
-                tower->setGameScene(gameScene); // 设置gameScene，用于发射子弹
-                towers.append(tower);
-
-                // 添加底座层到场景
-                QGraphicsPixmapItem *baseItem = tower->getBaseItem();
-                if (baseItem)
-                {
-                    gameScene->addItem(baseItem);
-                }
-
-                gameScene->addItem(tower);
-
-                // 扣除金币
-                gold -= tower->getCost();
-                goldLabel->setText(QString::number(gold));
-
-                qDebug() << "Tower built at (" << gridX << "," << gridY
-                         << "), cost:" << tower->getCost()
-                         << ", gold remaining:" << gold;
-
-                // 可选：添加建造动画或音效
-                QGraphicsRectItem *highlight = new QGraphicsRectItem(gridX, gridY, gridSize, gridSize);
-                highlight->setBrush(QBrush(QColor(255, 255, 0, 100)));
-                highlight->setPen(QPen(Qt::NoPen));
-                gameScene->addItem(highlight);
-
-                // 淡出动画
-                QTimer::singleShot(500, [highlight]()
-                                   {
-                    if (highlight->scene()) {
-                        highlight->scene()->removeItem(highlight);
-                        delete highlight;
-                    } });
-            }
-            else
+            int cost = GameConfig::TowerStats::ARROW_COST;
+            if (gameManager->getGold() < cost)
             {
                 qDebug() << "Not enough gold to build tower";
                 showFloatingTip("金币不足!", scenePos, Qt::red);
+                QWidget::mousePressEvent(event);
+                return;
             }
+
+            QPointer<Tower> tower = gameManager->buildTower(Tower::ARROW_TOWER, QPointF(gridX, gridY), this);
+            if (!tower)
+            {
+                showFloatingTip("金币不足!", scenePos, Qt::red);
+                QWidget::mousePressEvent(event);
+                return;
+            }
+
+            tower->setGameScene(gameScene);
+
+            QGraphicsRectItem *highlight = new QGraphicsRectItem(gridX, gridY, gridSize, gridSize);
+            highlight->setBrush(QBrush(QColor(255, 255, 0, 100)));
+            highlight->setPen(QPen(Qt::NoPen));
+            gameScene->addItem(highlight);
+
+            QTimer::singleShot(500, [highlight]()
+                               {
+                if (highlight->scene()) {
+                    highlight->scene()->removeItem(highlight);
+                    delete highlight;
+                } });
         }
     }
     else if (event->button() == Qt::RightButton)
@@ -1021,7 +792,7 @@ void GamePage::mousePressEvent(QMouseEvent *event)
 
 void GamePage::mouseMoveEvent(QMouseEvent *event)
 {
-    if (!gameRunning)
+    if (!gameManager || !gameManager->isGameRunning())
         return;
 
     QPoint viewPos = event->pos();
@@ -1115,8 +886,10 @@ void GamePage::updateHoverHighlight(const QPointF &scenePos)
 
 void GamePage::pauseAllEnemies()
 {
-    // 暂停所有敌人的移动
-    for (QPointer<Enemy> enemy : enemies)
+    if (!gameManager)
+        return;
+
+    for (QPointer<Enemy> enemy : gameManager->getEnemies())
     {
         if (enemy)
         {
@@ -1127,8 +900,10 @@ void GamePage::pauseAllEnemies()
 
 void GamePage::resumeAllEnemies()
 {
-    // 恢复所有敌人的移动（排除死亡状态）
-    for (QPointer<Enemy> enemy : enemies)
+    if (!gameManager)
+        return;
+
+    for (QPointer<Enemy> enemy : gameManager->getEnemies())
     {
         if (enemy)
         {
@@ -1139,8 +914,10 @@ void GamePage::resumeAllEnemies()
 
 void GamePage::pauseAllTowersAndBullets()
 {
-    // 暂停所有塔的攻击
-    for (QPointer<Tower> tower : towers)
+    if (!gameManager)
+        return;
+
+    for (QPointer<Tower> tower : gameManager->getTowers())
     {
         if (tower)
         {
@@ -1162,8 +939,10 @@ void GamePage::pauseAllTowersAndBullets()
 
 void GamePage::resumeAllTowersAndBullets()
 {
-    // 恢复所有塔的攻击
-    for (QPointer<Tower> tower : towers)
+    if (!gameManager)
+        return;
+
+    for (QPointer<Tower> tower : gameManager->getTowers())
     {
         if (tower)
         {

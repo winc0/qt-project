@@ -39,10 +39,16 @@ namespace GameConfig
         const int ARROW_FIRE_RATE = 1000; // ms
 
         // 炮塔
-        const int CANNON_DAMAGE = 50;
-        const int CANNON_RANGE = 120;
-        const int CANNON_COST = 200;
-        const int CANNON_FIRE_RATE = 2000;
+        const int CANNON_DAMAGE = 30;
+        const int CANNON_RANGE = 100;
+        const int CANNON_COST = 150;
+        const int CANNON_FIRE_RATE = 1500;
+
+        // 魔法塔
+        const int MAGIC_DAMAGE = 50;
+        const int MAGIC_RANGE = 150;
+        const int MAGIC_COST = 200;
+        const int MAGIC_FIRE_RATE = 2000;
     }
 
     // 波次设置

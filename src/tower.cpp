@@ -44,10 +44,10 @@ Tower::Tower(TowerType type, QPointF position, QObject *parent)
         fireRate = GameConfig::TowerStats::CANNON_FIRE_RATE;
         break;
     case MAGIC_TOWER:
-        damage = 30;
-        range = 100;
-        cost = 150;
-        fireRate = 1500;
+        damage = GameConfig::TowerStats::MAGIC_DAMAGE;
+        range = GameConfig::TowerStats::MAGIC_RANGE;
+        cost = GameConfig::TowerStats::MAGIC_COST;
+        fireRate = GameConfig::TowerStats::MAGIC_FIRE_RATE;
         break;
     }
 
