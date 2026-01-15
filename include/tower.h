@@ -11,7 +11,7 @@
 class Enemy;
 class QGraphicsScene;
 
-class Tower : public GameEntity
+class Tower : public GameEntity, public ISoundPlayable
 {
     Q_OBJECT
 public:
@@ -52,6 +52,9 @@ public:
     // 获取底座图形项
     QGraphicsPixmapItem *getBaseItem() const { return baseItem; }
 
+    void setResourceManager(ResourceManager *manager) override { resourceManager = manager; }
+    void playSound(const QString &soundId, qreal volume = 1.0, bool loop = false) override;
+
 private slots:
     void onAttackTimer();
 signals:
@@ -77,6 +80,8 @@ private:
     qreal rotationSpeed;           // 旋转速度
     bool targetLocked;
     QElapsedTimer targetLockTimer;
+
+    ResourceManager *resourceManager;
 
     bool isInRange(QPointer<Enemy> enemy) const;
     void findTarget();

@@ -28,9 +28,10 @@ Tower::Tower(TowerType type, QPointF position, QObject *parent)
       baseItem(nullptr),
       currentRotation(0.0),
       targetRotation(0.0),
-      rotationSpeed(45.0), // 防御塔旋转速度（度/秒）
+      rotationSpeed(45.0),
       targetLocked(false),
-      targetLostTime(0)
+      targetLostTime(0),
+      resourceManager(nullptr)
 {
     // 根据防御塔类型设置基础属性（伤害、射程、价格、攻速）
     switch (type)
@@ -156,10 +157,28 @@ void Tower::fire()
         QPointer<Bullet> bullet = new Bullet(bulletType, bulletStartPos, initialDir, currentTarget, damage, nullptr);
         if (bullet)
         {
+            if (resourceManager)
+            {
+                bullet->setResourceManager(resourceManager);
+            }
             gameScene->addItem(bullet);
             targetLocked = true;
             targetLockTimer.restart();
             emit fired();
+            QString soundId;
+            switch (towerType)
+            {
+            case ARROW_TOWER:
+                soundId = "shoot_arrow";
+                break;
+            case CANNON_TOWER:
+                soundId = "shoot_cannon";
+                break;
+            case MAGIC_TOWER:
+                soundId = "shoot_magic";
+                break;
+            }
+            playSound(soundId, 1.0, false);
         }
         else
         {
@@ -215,6 +234,13 @@ bool Tower::isInRange(QPointer<Enemy> enemy) const
     qreal distance = std::sqrt(dx * dx + dy * dy);
 
     return distance <= range;
+}
+
+void Tower::playSound(const QString &soundId, qreal volume, bool loop)
+{
+    if (!resourceManager)
+        return;
+    resourceManager->playSound(soundId, volume, loop);
 }
 
 void Tower::findTarget()

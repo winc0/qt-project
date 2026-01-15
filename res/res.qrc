@@ -1,44 +1,51 @@
 <!DOCTYPE RCC>
 <RCC version="1.0">
   <qresource prefix="/image/map">
-    <file>map1.png</file>
-    <file>map2.png</file>
+    <file>image/map1.png</file>
+    <file>image/map2.png</file>
   </qresource>
   <qresource prefix="/image/enemy">
-    <file>enemy_0_dead.png</file>
-    <file>enemy_1_dead.png</file>
-    <file>enemy_1_idle.png</file>
-    <file>enemy_0_idle.png</file>
-    <file>enemy_0_jump.png</file>
-    <file>enemy_1_jump.png</file>
-    <file>enemy_0_walk.png</file>
-    <file>enemy_1_walk.png</file>
-    <file>enemy_2_idle.png</file>
-    <file>enemy_2_dead.png</file>
-    <file>enemy_2_jump.png</file>
-    <file>enemy_2_walk.png</file>
-    <file>enemy_3_idle.png</file>
-    <file>enemy_3_jump.png</file>
-    <file>enemy_3_walk.png</file>
-    <file>enemy_3_dead.png</file>
+    <file>image/enemy_0_dead.png</file>
+    <file>image/enemy_1_dead.png</file>
+    <file>image/enemy_1_idle.png</file>
+    <file>image/enemy_0_idle.png</file>
+    <file>image/enemy_0_jump.png</file>
+    <file>image/enemy_1_jump.png</file>
+    <file>image/enemy_0_walk.png</file>
+    <file>image/enemy_1_walk.png</file>
+    <file>image/enemy_2_idle.png</file>
+    <file>image/enemy_2_dead.png</file>
+    <file>image/enemy_2_jump.png</file>
+    <file>image/enemy_2_walk.png</file>
+    <file>image/enemy_3_idle.png</file>
+    <file>image/enemy_3_jump.png</file>
+    <file>image/enemy_3_walk.png</file>
+    <file>image/enemy_3_dead.png</file>
   </qresource>
   <qresource prefix="/image/bullet">
-    <file>cannon.png</file>
-    <file>magic.png</file>
-    <file>arrow.png</file>
+    <file>image/cannon.png</file>
+    <file>image/magic.png</file>
+    <file>image/arrow.png</file>
   </qresource>
   <qresource prefix="/image/tower">
-    <file>arrow_tower.png</file>
-    <file>arrow_tower_base.png</file>
-    <file>cannon_tower.png</file>
-    <file>magic_tower.png</file>
-    <file>magic_tower_base.png</file>
-    <file>cannon_tower_base.png</file>
+    <file>image/arrow_tower.png</file>
+    <file>image/arrow_tower_base.png</file>
+    <file>image/cannon_tower.png</file>
+    <file>image/magic_tower.png</file>
+    <file>image/magic_tower_base.png</file>
+    <file>image/cannon_tower_base.png</file>
   </qresource>
   <qresource prefix="/image/user">
-    <file>user_idle.png</file>
-    <file>user_jump.png</file>
-    <file>user_walk.png</file>
-    <file>user_dead.png</file>
+    <file>image/user_idle.png</file>
+    <file>image/user_jump.png</file>
+    <file>image/user_walk.png</file>
+    <file>image/user_dead.png</file>
+  </qresource>
+  <qresource prefix="/sound">
+    <file>sound/coin.wav</file>
+    <file>sound/hurt.wav</file>
+    <file>sound/shoot_magic.wav</file>
+    <file>sound/shoot_cannon.wav</file>
+    <file>sound/shoot_arrow.wav</file>
   </qresource>
 </RCC>

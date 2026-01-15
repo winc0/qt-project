@@ -4,6 +4,17 @@
 #include <QObject>
 #include <QGraphicsPixmapItem>
 #include <QPointF>
+#include <QString>
+
+class ResourceManager;
+
+class ISoundPlayable
+{
+public:
+    virtual ~ISoundPlayable() {}
+    virtual void setResourceManager(ResourceManager *manager) = 0;
+    virtual void playSound(const QString &soundId, qreal volume = 1.0, bool loop = false) = 0;
+};
 
 class GameEntity : public QObject, public QGraphicsPixmapItem
 {

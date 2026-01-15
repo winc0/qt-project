@@ -7,7 +7,7 @@
 #include <QTimer>
 #include <QPointer>
 
-class Bullet : public GameEntity
+class Bullet : public GameEntity, public ISoundPlayable
 {
     Q_OBJECT
 public:
@@ -28,6 +28,9 @@ public:
     void pauseMovement() { if (moveTimer) moveTimer->stop(); }
     void resumeMovement() { if (moveTimer && !moveTimer->isActive()) moveTimer->start(GameConfig::BULLET_MOVE_INTERVAL); }
 
+    void setResourceManager(ResourceManager *manager) override { resourceManager = manager; }
+    void playSound(const QString &soundId, qreal volume = 1.0, bool loop = false) override;
+
 signals:
     void hit(Enemy* enemy, int damage);
 
@@ -47,6 +50,7 @@ private:
     QPointF startPosition; // 发射位置
     float travelledDistance;
     int lostTargetTimeMs;
+    ResourceManager *resourceManager;
 };
 
 #endif

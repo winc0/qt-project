@@ -18,7 +18,8 @@ GameManager::GameManager(QObject *parent)
       killCount(0),
       currentMapId(GameConfig::MAP1),
       gameTimer(new QTimer(this)),
-      enemySpawnTimer(new QTimer(this))
+      enemySpawnTimer(new QTimer(this)),
+      resourceManager(&ResourceManager::instance())
 {
     connect(gameTimer, &QTimer::timeout, this, &GameManager::updateGame);
     connect(enemySpawnTimer, &QTimer::timeout, this, &GameManager::spawnEnemy);
@@ -247,6 +248,7 @@ void GameManager::removeDeadEntities()
         {
             killCount++;
             gold += enemy->getReward();
+            playSound("coin", 0.7, false);
             emit goldChanged(gold);
             emit killCountChanged(killCount);
 
@@ -339,6 +341,19 @@ int GameManager::getTowerCost(Tower::TowerType type) const
     return GameConfig::TowerStats::ARROW_COST;
 }
 
+void GameManager::setResourceManager(ResourceManager *manager)
+{
+    if (manager)
+        resourceManager = manager;
+}
+
+void GameManager::playSound(const QString &soundId, qreal volume, bool loop)
+{
+    if (!resourceManager)
+        return;
+    resourceManager->playSound(soundId, volume, loop);
+}
+
 QPointer<Tower> GameManager::buildTower(Tower::TowerType type, const QPointF &position, QObject *parentForTower)
 {
     int cost = getTowerCost(type);
@@ -351,6 +366,10 @@ QPointer<Tower> GameManager::buildTower(Tower::TowerType type, const QPointF &po
     emit goldChanged(gold);
 
     QPointer<Tower> tower = new Tower(type, position, parentForTower);
+    if (tower && resourceManager)
+    {
+        tower->setResourceManager(resourceManager);
+    }
     towers.append(tower);
     emit towerBuilt(tower);
 
@@ -396,6 +415,10 @@ QPointer<Tower> GameManager::upgradeTower(QPointer<Tower> tower)
     QObject *parentForTower = tower->parent();
 
     QPointer<Tower> newTower = new Tower(nextType, position, parentForTower);
+    if (newTower && resourceManager)
+    {
+        newTower->setResourceManager(resourceManager);
+    }
     towers[index] = newTower;
 
     emit towerUpgraded(tower, newTower);
@@ -420,6 +443,7 @@ bool GameManager::demolishTower(QPointer<Tower> tower)
     if (refund > 0)
     {
         gold += refund;
+        playSound("coin", 0.7, false);
         emit goldChanged(gold);
     }
 

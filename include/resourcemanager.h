@@ -6,6 +6,7 @@
 #include <QPixmap>
 #include <QMap>
 #include <QString>
+#include <QHash>
 
 class ResourceManager : public QObject
 {
@@ -47,6 +48,8 @@ public:
 
     QPixmap getUserPixmap(UserState state) const;
 
+    void playSound(const QString &soundId, qreal volume = 1.0, bool loop = false);
+
     QPixmap getBulletPixmap() const;
     QPixmap getTowerPixmap() const;
     QPixmap getTowerBasePixmap() const;
@@ -69,8 +72,11 @@ private:
     ~ResourceManager() = default;
 
     QMap<QString, QPixmap> pixmapCache;
+    QHash<QString, QList<class QSoundEffect*>> soundEffectPool;
 
     void loadDefaultPixmaps();
+    void preloadDefaultSounds();
+    class QSoundEffect* acquireSoundEffect(const QString &soundId);
 };
 
 #endif

@@ -6,11 +6,14 @@
 #include <QBrush>
 #include <QDebug>
 #include <QRandomGenerator>
+#include <QSoundEffect>
+#include <QUrl>
 
 ResourceManager::ResourceManager(QObject *parent)
     : QObject(parent)
 {
     loadDefaultPixmaps();
+    preloadDefaultSounds();
 }
 
 ResourceManager& ResourceManager::instance()
@@ -56,14 +59,14 @@ QPixmap ResourceManager::getEnemyPixmap(int enemyType, EnemyState state) const
             stateName = "idle";
     }
 
-    // 路径格式: :/image/enemy/enemy_{type}_{state}.png
-    // 如果不存在则尝试通用路径: :/image/enemy/enemy_{state}.png
-    QString resourcePath = QString(":/image/enemy/enemy_%1_%2.png").arg(type).arg(stateName);
+    // 路径格式: :/image/enemy/image/enemy_{type}_{state}.png
+    // 如果不存在则尝试通用路径: :/image/enemy/image/enemy_{state}.png
+    QString resourcePath = QString(":/image/enemy/image/enemy_%1_%2.png").arg(type).arg(stateName);
     QPixmap pixmap(resourcePath);
     
     // 如果特定类型的图片不存在，尝试加载通用版本
     if (pixmap.isNull()) {
-        QString fallbackPath = QString(":/image/enemy/enemy_%1.png").arg(stateName);
+        QString fallbackPath = QString(":/image/enemy/image/enemy_%1.png").arg(stateName);
         pixmap.load(fallbackPath);
     }
     
@@ -91,7 +94,7 @@ QPixmap ResourceManager::getUserPixmap(UserState state) const
         break;
     }
 
-    QString resourcePath = QString(":/image/user/user_%1.png").arg(stateName);
+    QString resourcePath = QString(":/image/user/image/user_%1.png").arg(stateName);
     QPixmap pixmap(resourcePath);
 
     if (pixmap.isNull())
@@ -139,7 +142,7 @@ QPixmap ResourceManager::getDefaultUserPixmap() const
 
 QPixmap ResourceManager::getTowerBasePixmap() const
 {
-    QPixmap pixmap(":/image/tower/towerbase.png");
+    QPixmap pixmap(":/image/tower/image/towerbase.png");
 
     // 如果资源文件不存在，使用默认图片
     if (pixmap.isNull())
@@ -163,7 +166,7 @@ QPixmap ResourceManager::getDefaultTowerBasePixmap() const
 
 QPixmap ResourceManager::getTowerPixmap() const
 {
-    QPixmap pixmap(":/image/tower/tower.png");
+    QPixmap pixmap(":/image/tower/image/tower.png");
 
     // 如果资源文件不存在，使用默认图片
     if (pixmap.isNull())
@@ -229,13 +232,13 @@ QPixmap ResourceManager::getGameMap(GameConfig::MapId mapId) const
     switch (mapId)
     {
     case GameConfig::MAP1:
-        resourcePath = ":/image/map/map1.png";
+        resourcePath = ":/image/map/image/map1.png";
         break;
     case GameConfig::MAP2:
-        resourcePath = ":/image/map/map2.png";
+        resourcePath = ":/image/map/image/map2.png";
         break;
     default:
-        resourcePath = ":/image/map/map1.png";
+        resourcePath = ":/image/map/image/map1.png";
         break;
     }
 
@@ -254,7 +257,7 @@ QPixmap ResourceManager::getGameMap(GameConfig::MapId mapId) const
 
 QPixmap ResourceManager::getBulletPixmap() const
 {
-    QPixmap bulletPixmap(":/image/bullet/bullet.png");
+    QPixmap bulletPixmap(":/image/bullet/image/bullet.png");
 
     // 如果资源文件不存在，使用默认图片
     if (bulletPixmap.isNull())
@@ -303,13 +306,13 @@ QPixmap ResourceManager::getTowerPixmapForType(int towerType, int level)
 
     if (level > 1)
     {
-        QString levelPath = QString(":/image/tower/%1_lvl%2.png").arg(baseName).arg(level);
+        QString levelPath = QString(":/image/tower/image/%1_lvl%2.png").arg(baseName).arg(level);
         pixmap.load(levelPath);
     }
 
     if (pixmap.isNull())
     {
-        QString basePath = QString(":/image/tower/%1.png").arg(baseName);
+        QString basePath = QString(":/image/tower/image/%1.png").arg(baseName);
         pixmap.load(basePath);
     }
 
@@ -355,7 +358,7 @@ QPixmap ResourceManager::getTowerBasePixmapForType(int towerType, int level)
 
     QPixmap pixmap;
 
-    QString basePath = QString(":/image/tower/%1.png").arg(baseName);
+    QString basePath = QString(":/image/tower/image/%1.png").arg(baseName);
     pixmap.load(basePath);
 
     if (pixmap.isNull())
@@ -402,13 +405,13 @@ QPixmap ResourceManager::getBulletPixmapForType(int bulletType, int level)
 
     if (level > 1)
     {
-        QString levelPath = QString(":/image/bullet/%1_lvl%2.png").arg(baseName).arg(level);
+        QString levelPath = QString(":/image/bullet/image/%1_lvl%2.png").arg(baseName).arg(level);
         pixmap.load(levelPath);
     }
 
     if (pixmap.isNull())
     {
-        QString basePath = QString(":/image/bullet/%1.png").arg(baseName);
+        QString basePath = QString(":/image/bullet/image/%1.png").arg(baseName);
         pixmap.load(basePath);
     }
 
@@ -443,4 +446,61 @@ void ResourceManager::loadDefaultPixmaps()
     painter.setPen(QPen(Qt::darkBlue, 1));
     painter.drawEllipse(0, 0, 10, 10);
     pixmapCache["bullet_default"] = bulletPixmap;
+}
+
+QSoundEffect* ResourceManager::acquireSoundEffect(const QString &soundId)
+{
+    QList<QSoundEffect*> &pool = soundEffectPool[soundId];
+    for (QSoundEffect *effect : pool)
+    {
+        if (effect && !effect->isPlaying())
+        {
+            return effect;
+        }
+    }
+
+    QSoundEffect *effect = new QSoundEffect(this);
+
+    QString fileName;
+    if (soundId == "coin")
+        fileName = "coin.wav";
+    else if (soundId == "hurt")
+        fileName = "hurt.wav";
+    else if (soundId.startsWith("shoot_"))
+        fileName = soundId + ".wav";
+    else
+        fileName = soundId + ".wav";
+
+    QString resourcePath = QStringLiteral("qrc:/sound/sound/") + fileName;
+    effect->setSource(QUrl(resourcePath));
+
+    pool.append(effect);
+    return effect;
+}
+
+void ResourceManager::playSound(const QString &soundId, qreal volume, bool loop)
+{
+    QSoundEffect *effect = acquireSoundEffect(soundId);
+    if (!effect)
+        return;
+
+    qreal v = volume;
+    if (v < 0.0)
+        v = 0.0;
+    if (v > 1.0)
+        v = 1.0;
+
+    effect->setVolume(v);
+    effect->setLoopCount(loop ? QSoundEffect::Infinite : 1);
+    effect->stop();
+    effect->play();
+}
+
+void ResourceManager::preloadDefaultSounds()
+{
+    acquireSoundEffect("coin");
+    acquireSoundEffect("hurt");
+    acquireSoundEffect("shoot_arrow");
+    acquireSoundEffect("shoot_cannon");
+    acquireSoundEffect("shoot_magic");
 }

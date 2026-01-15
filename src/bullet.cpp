@@ -24,6 +24,7 @@ Bullet::Bullet(BulletType type, QPointF startPos, const QPointF &initialDirectio
     , startPosition(startPos)
     , travelledDistance(0.0f)
     , lostTargetTimeMs(0)
+    , resourceManager(nullptr)
 {
     // 设置子弹位置为传入的中心点坐标
     setPos(startPos);
@@ -108,6 +109,7 @@ void Bullet::onMoveTimer()
             qDebug() << "Bullet hit target! Dealing" << damage << "damage";
             emit hit(target, damage);
             target->setHealth(target->getHealth() - damage);
+            playSound("hurt", 0.8, false);
             if (scene())
                 scene()->removeItem(this);
             deleteLater();
@@ -188,6 +190,13 @@ void Bullet::onMoveTimer()
         deleteLater();
         return;
     }
+}
+
+void Bullet::playSound(const QString &soundId, qreal volume, bool loop)
+{
+    if (!resourceManager)
+        return;
+    resourceManager->playSound(soundId, volume, loop);
 }
 
 void Bullet::updateRotation()

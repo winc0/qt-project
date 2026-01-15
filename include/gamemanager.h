@@ -5,6 +5,8 @@
 #include "tower.h"
 #include "bullet.h"
 #include "config.h"
+#include "gameentity.h"
+#include "resourcemanager.h"
 #include <QObject>
 #include <QList>
 #include <QPointer>
@@ -12,7 +14,7 @@
 #include <QVector>
 #include <QPointF>
 
-class GameManager : public QObject
+class GameManager : public QObject, public ISoundPlayable
 {
     Q_OBJECT
 
@@ -62,6 +64,9 @@ public slots:
     void spawnEnemy();
     void updateGame();
 
+    void setResourceManager(ResourceManager *manager) override;
+    void playSound(const QString &soundId, qreal volume = 1.0, bool loop = false) override;
+
 private:
     void updateEnemies();
     void updateTowers();
@@ -92,6 +97,7 @@ private:
 
     QTimer *gameTimer;
     QTimer *enemySpawnTimer;
+    ResourceManager *resourceManager;
 };
 
 #endif // GAMEMANAGER_H
