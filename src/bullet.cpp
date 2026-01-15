@@ -14,7 +14,7 @@
 #define M_PI 3.14159265358979323846
 #endif
 
-Bullet::Bullet(BulletType type, QPointF startPos, QPointer<Enemy> target, int damage, QObject *parent)
+Bullet::Bullet(BulletType type, QPointF startPos, const QPointF &initialDirection, QPointer<Enemy> target, int damage, QObject *parent)
     : GameEntity(BULLET, parent)
     , bulletType(type)
     , target(target)
@@ -53,14 +53,10 @@ Bullet::Bullet(BulletType type, QPointF startPos, QPointer<Enemy> target, int da
     setTransformOriginPoint(bulletPixmap.width() / 2.0, bulletPixmap.height() / 2.0);
     setOffset(-bulletPixmap.width() / 2.0, -bulletPixmap.height() / 2.0);
 
-    if (target && !target.isNull())
-    {
-        QPointF targetCenter = target->getCenterPosition();
-        QPointF dir = targetCenter - startPos;
-        qreal len = std::sqrt(dir.x() * dir.x() + dir.y() * dir.y());
-        if (len > 0.0)
-            direction = dir / len;
-    }
+    QPointF dir = initialDirection;
+    qreal len = std::sqrt(dir.x() * dir.x() + dir.y() * dir.y());
+    if (len > 0.0)
+        direction = dir / len;
 
     updateRotation();
 
@@ -117,11 +113,53 @@ void Bullet::onMoveTimer()
             deleteLater();
             return;
         }
+
+        if (distanceToTarget > 0.0)
+        {
+            QPointF desiredDir = toTarget / distanceToTarget;
+
+            QPointF dir = direction;
+            qreal dirLen = std::sqrt(dir.x() * dir.x() + dir.y() * dir.y());
+            if (dirLen > 0.0)
+                dir /= dirLen;
+
+            qreal dot = dir.x() * desiredDir.x() + dir.y() * desiredDir.y();
+            if (dot > 1.0)
+                dot = 1.0;
+            else if (dot < -1.0)
+                dot = -1.0;
+
+            qreal angle = std::acos(dot);
+            qreal maxTurnDeg = 10.0;
+            qreal maxTurnRad = maxTurnDeg * M_PI / 180.0;
+
+            if (angle > 0.0001)
+            {
+                qreal turn = angle;
+                if (turn > maxTurnRad)
+                    turn = maxTurnRad;
+
+                qreal cross = dir.x() * desiredDir.y() - dir.y() * desiredDir.x();
+                qreal sign = cross >= 0.0 ? 1.0 : -1.0;
+
+                qreal c = std::cos(turn);
+                qreal s = std::sin(turn) * sign;
+
+                QPointF newDir(dir.x() * c - dir.y() * s,
+                               dir.x() * s + dir.y() * c);
+
+                qreal newLen = std::sqrt(newDir.x() * newDir.x() + newDir.y() * newDir.y());
+                if (newLen > 0.0)
+                    direction = newDir / newLen;
+            }
+        }
     }
 
     QPointF delta = direction * speed;
     QPointF nextPos = currentPos + delta;
     setPos(nextPos);
+
+    updateRotation();
 
     travelledDistance += std::sqrt(delta.x() * delta.x() + delta.y() * delta.y());
     if (travelledDistance >= GameConfig::BULLET_MAX_DISTANCE)

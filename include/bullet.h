@@ -18,7 +18,7 @@ public:
         BULLET_MAGIC = 2
     };
 
-    explicit Bullet(BulletType type, QPointF startPos, QPointer<Enemy> target, int damage, QObject *parent = nullptr);
+    explicit Bullet(BulletType type, QPointF startPos, const QPointF &initialDirection, QPointer<Enemy> target, int damage, QObject *parent = nullptr);
     ~Bullet();
 
     void update() override;

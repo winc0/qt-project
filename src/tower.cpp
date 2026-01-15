@@ -123,9 +123,11 @@ void Tower::fire()
 {
     if (currentTarget && gameScene)
     {
-        QPointF bulletStartPos = mapToScene(transformOriginPoint());
+        QRectF rect = boundingRect();
+        QPointF localTip(rect.width() / 2.0, 0.0);
+        QPointF bulletStartPos = mapToScene(localTip);
 
-        qDebug() << "Tower firing from center" << bulletStartPos;
+        qDebug() << "Tower firing from tip" << bulletStartPos;
 
         // 创建子弹对象
         Bullet::BulletType bulletType = Bullet::BULLET_ARROW;
@@ -142,7 +144,11 @@ void Tower::fire()
             break;
         }
 
-        QPointer<Bullet> bullet = new Bullet(bulletType, bulletStartPos, currentTarget, damage, nullptr);
+        qreal angleDeg = rotation() - 90.0;
+        qreal angleRad = angleDeg * M_PI / 180.0;
+        QPointF initialDir(std::cos(angleRad), std::sin(angleRad));
+
+        QPointer<Bullet> bullet = new Bullet(bulletType, bulletStartPos, initialDir, currentTarget, damage, nullptr);
         if (bullet)
         {
             gameScene->addItem(bullet);
