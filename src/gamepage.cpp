@@ -185,6 +185,19 @@ GamePage::~GamePage()
     resetGame();
 }
 
+void GamePage::updateGameStats()
+{
+    if (!gameManager)
+        return;
+
+    if (goldLabel)
+        goldLabel->setText(QString::number(gameManager->getGold()));
+    if (livesLabel)
+        livesLabel->setText(QString::number(gameManager->getLives()));
+    if (waveLabel)
+        waveLabel->setText(QString("第 %1 波").arg(gameManager->getCurrentWave()));
+}
+
 void GamePage::setMap(GameConfig::MapId mapId)
 {
     currentMapId = mapId;
@@ -217,13 +230,7 @@ void GamePage::setMap(GameConfig::MapId mapId)
     {
         gameManager->resetGame();
         gameManager->initialize(currentMapId, pathPoints, endPointAreas);
-
-        if (goldLabel)
-            goldLabel->setText(QString::number(gameManager->getGold()));
-        if (livesLabel)
-            livesLabel->setText(QString::number(gameManager->getLives()));
-        if (waveLabel)
-            waveLabel->setText(QString("第 %1 波").arg(gameManager->getCurrentWave()));
+        updateGameStats();
     }
 }
 
@@ -648,32 +655,17 @@ void GamePage::resetGame()
         }
     }
 
-    goldLabel->setText(QString::number(gameManager->getGold()));
-    livesLabel->setText(QString::number(gameManager->getLives()));
-    waveLabel->setText(QString("第 %1 波").arg(gameManager->getCurrentWave()));
+    updateGameStats();
 }
 
-void GamePage::showGameOverDialog()
+GamePage::ResultViewContext GamePage::createResultWrapper(const QString &panelStyle, const QColor &shadowColor)
 {
-    if (gameManager)
-    {
-        pauseAllEnemies();
-        pauseAllTowersAndBullets();
-    }
-
     if (resultOverlay)
     {
         resultOverlay->deleteLater();
         resultOverlay = nullptr;
         resultPanel = nullptr;
     }
-
-    // 移除任何图形效果以防止 painter 冲突
-    setGraphicsEffect(nullptr);
-    update();
-    repaint();
-
-    saveLevelProgress(false);
 
     resultOverlay = new QWidget(this);
     resultOverlay->setGeometry(0, 0, width(), height());
@@ -682,22 +674,15 @@ void GamePage::showGameOverDialog()
 
     resultPanel = new QWidget(resultOverlay);
     resultPanel->setFixedSize(500, 420);
-    resultPanel->setStyleSheet(
-        "QWidget {"
-        "   background: qlineargradient(x1:0, y1:0, x2:1, y2:1, stop:0 #ffffff, stop:1 #f5f5f5);"
-        "   border-radius: 20px;"
-        "   border: 1px solid #34495e;"
-        "}"
-    );
-    // 使用 QGraphicsDropShadowEffect 替代边框，避免遮挡文字
+    resultPanel->setStyleSheet(panelStyle);
+
     QGraphicsDropShadowEffect *shadowEffect = new QGraphicsDropShadowEffect();
     shadowEffect->setBlurRadius(12);
-    shadowEffect->setColor(QColor(52, 73, 94, 200));
+    shadowEffect->setColor(shadowColor);
     shadowEffect->setOffset(0, 2);
     resultPanel->setGraphicsEffect(shadowEffect);
     resultPanel->move((width() - resultPanel->width()) / 2, (height() - resultPanel->height()) / 2);
 
-    // 创建容器用于不透明度动画
     QWidget *animContainer = new QWidget(resultPanel);
     animContainer->setGeometry(resultPanel->rect());
     animContainer->lower();
@@ -710,13 +695,72 @@ void GamePage::showGameOverDialog()
     layout->setContentsMargins(36, 48, 36, 48);
     layout->setSpacing(20);
 
-    // 标题
-    QLabel *titleLabel = new QLabel("游戏结束", resultPanel);
+    ResultViewContext ctx;
+    ctx.overlay = resultOverlay;
+    ctx.panel = resultPanel;
+    ctx.layout = layout;
+    ctx.opacityEffect = effect;
+    return ctx;
+}
+
+void GamePage::playResultAnimation(const ResultViewContext &ctx)
+{
+    if (!ctx.opacityEffect || !ctx.panel)
+        return;
+
+    QPropertyAnimation *fadeIn = new QPropertyAnimation(ctx.opacityEffect, "opacity", ctx.panel);
+    fadeIn->setDuration(GameConfig::RESULT_PANEL_ANIM_DURATION_MS);
+    fadeIn->setStartValue(0.0);
+    fadeIn->setEndValue(1.0);
+    fadeIn->setEasingCurve(QEasingCurve::OutCubic);
+
+    QRect startRect = ctx.panel->geometry();
+    int dw = startRect.width() / 8;
+    int dh = startRect.height() / 8;
+    QRect smallRect(startRect.adjusted(dw, dh, -dw, -dh));
+
+    ctx.panel->setGeometry(smallRect);
+
+    QPropertyAnimation *scaleAnim = new QPropertyAnimation(ctx.panel, "geometry", ctx.panel);
+    scaleAnim->setDuration(GameConfig::RESULT_PANEL_ANIM_DURATION_MS);
+    scaleAnim->setStartValue(smallRect);
+    scaleAnim->setEndValue(startRect);
+    scaleAnim->setEasingCurve(QEasingCurve::OutBack);
+
+    fadeIn->start(QAbstractAnimation::DeleteWhenStopped);
+    scaleAnim->start(QAbstractAnimation::DeleteWhenStopped);
+}
+
+void GamePage::showGameOverDialog()
+{
+    if (gameManager)
+    {
+        pauseAllEnemies();
+        pauseAllTowersAndBullets();
+    }
+
+    setGraphicsEffect(nullptr);
+    update();
+    repaint();
+
+    saveLevelProgress(false);
+
+    QString panelStyle =
+        "QWidget {"
+        "   background: qlineargradient(x1:0, y1:0, x2:1, y2:1, stop:0 #ffffff, stop:1 #f5f5f5);"
+        "   border-radius: 20px;"
+        "   border: 1px solid #34495e;"
+        "}";
+    QColor shadowColor(52, 73, 94, 200);
+
+    ResultViewContext ctx = createResultWrapper(panelStyle, shadowColor);
+
+    QLabel *titleLabel = new QLabel("游戏结束", ctx.panel);
     titleLabel->setAlignment(Qt::AlignCenter);
     titleLabel->setFont(QFont("Microsoft YaHei", 32, QFont::Bold));
     titleLabel->setStyleSheet("color: #2c3e50;");
     titleLabel->setMinimumHeight(48);
-    layout->addWidget(titleLabel);
+    ctx.layout->addWidget(titleLabel);
 
     qint64 elapsedMs = elapsedTimer.isValid() ? elapsedTimer.elapsed() : 0;
     int seconds = static_cast<int>(elapsedMs / 1000);
@@ -739,11 +783,11 @@ void GamePage::showGameOverDialog()
         grade = "C";
 
     // 数据标签
-    QLabel *killLabel = new QLabel(QString("击杀敌人数量：%1").arg(kill), resultPanel);
-    QLabel *timeLabel = new QLabel(QString("游戏时长：%1 秒").arg(seconds), resultPanel);
-    QLabel *waveLabel = new QLabel(QString("到达波次：第 %1 波").arg(wave), resultPanel);
-    QLabel *scoreLabel = new QLabel(QString("得分：%1").arg(score), resultPanel);
-    QLabel *gradeLabel = new QLabel(QString("评级：%1").arg(grade), resultPanel);
+    QLabel *killLabel = new QLabel(QString("击杀敌人数量：%1").arg(kill), ctx.panel);
+    QLabel *timeLabel = new QLabel(QString("游戏时长：%1 秒").arg(seconds), ctx.panel);
+    QLabel *waveLabel = new QLabel(QString("到达波次：第 %1 波").arg(wave), ctx.panel);
+    QLabel *scoreLabel = new QLabel(QString("得分：%1").arg(score), ctx.panel);
+    QLabel *gradeLabel = new QLabel(QString("评级：%1").arg(grade), ctx.panel);
 
     for (QLabel *label : {killLabel, timeLabel, waveLabel, scoreLabel, gradeLabel})
     {
@@ -751,7 +795,7 @@ void GamePage::showGameOverDialog()
         label->setFont(QFont("Microsoft YaHei", 16, QFont::Normal));
         label->setStyleSheet("color: #34495e; padding: 8px 0px;");
         label->setMinimumHeight(36);
-        layout->addWidget(label);
+        ctx.layout->addWidget(label);
     }
 
     // 评级样式增强
@@ -765,15 +809,15 @@ void GamePage::showGameOverDialog()
     else
         gradeLabel->setStyleSheet("color: #95a5a6; padding: 8px 0px; font-weight: bold;");
 
-    layout->addSpacing(12);
+    ctx.layout->addSpacing(12);
 
     // 按钮区域
     QHBoxLayout *buttonLayout = new QHBoxLayout();
     buttonLayout->setSpacing(20);
     buttonLayout->setContentsMargins(0, 0, 0, 0);
 
-    QPushButton *restartButton = new QPushButton("重新开始", resultPanel);
-    QPushButton *menuButton = new QPushButton("返回主菜单", resultPanel);
+    QPushButton *restartButton = new QPushButton("重新开始", ctx.panel);
+    QPushButton *menuButton = new QPushButton("返回主菜单", ctx.panel);
 
     restartButton->setMinimumHeight(48);
     menuButton->setMinimumHeight(48);
@@ -817,29 +861,9 @@ void GamePage::showGameOverDialog()
 
     buttonLayout->addWidget(restartButton);
     buttonLayout->addWidget(menuButton);
-    layout->addLayout(buttonLayout);
+    ctx.layout->addLayout(buttonLayout);
 
-    QPropertyAnimation *fadeIn = new QPropertyAnimation(effect, "opacity", resultPanel);
-    fadeIn->setDuration(GameConfig::RESULT_PANEL_ANIM_DURATION_MS);
-    fadeIn->setStartValue(0.0);
-    fadeIn->setEndValue(1.0);
-    fadeIn->setEasingCurve(QEasingCurve::OutCubic);
-
-    QRect startRect = resultPanel->geometry();
-    int dw = startRect.width() / 8;
-    int dh = startRect.height() / 8;
-    QRect smallRect(startRect.adjusted(dw, dh, -dw, -dh));
-
-    resultPanel->setGeometry(smallRect);
-
-    QPropertyAnimation *scaleAnim = new QPropertyAnimation(resultPanel, "geometry", resultPanel);
-    scaleAnim->setDuration(GameConfig::RESULT_PANEL_ANIM_DURATION_MS);
-    scaleAnim->setStartValue(smallRect);
-    scaleAnim->setEndValue(startRect);
-    scaleAnim->setEasingCurve(QEasingCurve::OutBack);
-
-    fadeIn->start(QAbstractAnimation::DeleteWhenStopped);
-    scaleAnim->start(QAbstractAnimation::DeleteWhenStopped);
+    playResultAnimation(ctx);
 
     connect(restartButton, &QPushButton::clicked, this, [this]()
             {
@@ -876,60 +900,28 @@ void GamePage::showLevelCompleteDialog()
         pauseAllTowersAndBullets();
     }
 
-    if (resultOverlay)
-    {
-        resultOverlay->deleteLater();
-        resultOverlay = nullptr;
-        resultPanel = nullptr;
-    }
-
-    // 移除任何图形效果以防止 painter 冲突
     setGraphicsEffect(nullptr);
     update();
     repaint();
 
     saveLevelProgress(true);
 
-    resultOverlay = new QWidget(this);
-    resultOverlay->setGeometry(0, 0, width(), height());
-    resultOverlay->setStyleSheet("background-color: rgba(0, 0, 0, 180);");
-    resultOverlay->setAttribute(Qt::WA_TransparentForMouseEvents, false);
-
-    resultPanel = new QWidget(resultOverlay);
-    resultPanel->setFixedSize(500, 420);
-    resultPanel->setStyleSheet(
+    QString panelStyle =
         "QWidget {"
         "   background: qlineargradient(x1:0, y1:0, x2:1, y2:1, stop:0 #ffffff, stop:1 #f5f5f5);"
         "   border-radius: 20px;"
         "   border: 1px solid #2ecc71;"
-        "}"
-    );
+        "}";
+    QColor shadowColor(39, 174, 96, 200);
 
-    QGraphicsDropShadowEffect *shadowEffect = new QGraphicsDropShadowEffect();
-    shadowEffect->setBlurRadius(12);
-    shadowEffect->setColor(QColor(39, 174, 96, 200));
-    shadowEffect->setOffset(0, 2);
-    resultPanel->setGraphicsEffect(shadowEffect);
-    resultPanel->move((width() - resultPanel->width()) / 2, (height() - resultPanel->height()) / 2);
+    ResultViewContext ctx = createResultWrapper(panelStyle, shadowColor);
 
-    QWidget *animContainer = new QWidget(resultPanel);
-    animContainer->setGeometry(resultPanel->rect());
-    animContainer->lower();
-
-    QGraphicsOpacityEffect *effect = new QGraphicsOpacityEffect(animContainer);
-    animContainer->setGraphicsEffect(effect);
-    effect->setOpacity(0.0);
-
-    QVBoxLayout *layout = new QVBoxLayout(resultPanel);
-    layout->setContentsMargins(36, 48, 36, 48);
-    layout->setSpacing(20);
-
-    QLabel *titleLabel = new QLabel("胜利！", resultPanel);
+    QLabel *titleLabel = new QLabel("胜利！", ctx.panel);
     titleLabel->setAlignment(Qt::AlignCenter);
     titleLabel->setFont(QFont("Microsoft YaHei", 32, QFont::Bold));
     titleLabel->setStyleSheet("color: #27ae60;");
     titleLabel->setMinimumHeight(48);
-    layout->addWidget(titleLabel);
+    ctx.layout->addWidget(titleLabel);
 
     int wave = gameManager ? gameManager->getCurrentWave() : 1;
     int kill = gameManager ? gameManager->getKillCount() : 0;
@@ -940,11 +932,11 @@ void GamePage::showLevelCompleteDialog()
                 wave * GameConfig::SCORE_PER_WAVE +
                 gold;
 
-    QLabel *levelLabel = new QLabel(QString("当前关卡：第 %1 关").arg(mapIndex), resultPanel);
-    QLabel *waveLabel = new QLabel(QString("防守波次：第 %1 波").arg(wave), resultPanel);
-    QLabel *killLabel = new QLabel(QString("击败敌人数量：%1").arg(kill), resultPanel);
-    QLabel *goldLabel = new QLabel(QString("剩余金币：%1").arg(gold), resultPanel);
-    QLabel *scoreLabel = new QLabel(QString("总得分：%1").arg(score), resultPanel);
+    QLabel *levelLabel = new QLabel(QString("当前关卡：第 %1 关").arg(mapIndex), ctx.panel);
+    QLabel *waveLabel = new QLabel(QString("防守波次：第 %1 波").arg(wave), ctx.panel);
+    QLabel *killLabel = new QLabel(QString("击败敌人数量：%1").arg(kill), ctx.panel);
+    QLabel *goldLabel = new QLabel(QString("剩余金币：%1").arg(gold), ctx.panel);
+    QLabel *scoreLabel = new QLabel(QString("总得分：%1").arg(score), ctx.panel);
 
     for (QLabel *label : {levelLabel, waveLabel, killLabel, goldLabel, scoreLabel})
     {
@@ -952,17 +944,17 @@ void GamePage::showLevelCompleteDialog()
         label->setFont(QFont("Microsoft YaHei", 16, QFont::Normal));
         label->setStyleSheet("color: #34495e; padding: 8px 0px;");
         label->setMinimumHeight(36);
-        layout->addWidget(label);
+        ctx.layout->addWidget(label);
     }
 
-    layout->addSpacing(12);
+    ctx.layout->addSpacing(12);
 
     QHBoxLayout *buttonLayout = new QHBoxLayout();
     buttonLayout->setSpacing(20);
     buttonLayout->setContentsMargins(0, 0, 0, 0);
 
-    QPushButton *menuButton = new QPushButton("返回主菜单", resultPanel);
-    QPushButton *restartButton = new QPushButton("重新开始", resultPanel);
+    QPushButton *menuButton = new QPushButton("返回主菜单", ctx.panel);
+    QPushButton *restartButton = new QPushButton("重新开始", ctx.panel);
 
     QList<QPushButton *> buttons = {menuButton, restartButton};
     for (QPushButton *btn : buttons)
@@ -1006,29 +998,9 @@ void GamePage::showLevelCompleteDialog()
 
     buttonLayout->addWidget(menuButton);
     buttonLayout->addWidget(restartButton);
-    layout->addLayout(buttonLayout);
+    ctx.layout->addLayout(buttonLayout);
 
-    QPropertyAnimation *fadeIn = new QPropertyAnimation(effect, "opacity", resultPanel);
-    fadeIn->setDuration(GameConfig::RESULT_PANEL_ANIM_DURATION_MS);
-    fadeIn->setStartValue(0.0);
-    fadeIn->setEndValue(1.0);
-    fadeIn->setEasingCurve(QEasingCurve::OutCubic);
-
-    QRect startRect = resultPanel->geometry();
-    int dw = startRect.width() / 8;
-    int dh = startRect.height() / 8;
-    QRect smallRect(startRect.adjusted(dw, dh, -dw, -dh));
-
-    resultPanel->setGeometry(smallRect);
-
-    QPropertyAnimation *scaleAnim = new QPropertyAnimation(resultPanel, "geometry", resultPanel);
-    scaleAnim->setDuration(GameConfig::RESULT_PANEL_ANIM_DURATION_MS);
-    scaleAnim->setStartValue(smallRect);
-    scaleAnim->setEndValue(startRect);
-    scaleAnim->setEasingCurve(QEasingCurve::OutBack);
-
-    fadeIn->start(QAbstractAnimation::DeleteWhenStopped);
-    scaleAnim->start(QAbstractAnimation::DeleteWhenStopped);
+    playResultAnimation(ctx);
 
     connect(menuButton, &QPushButton::clicked, this, [this]()
             {

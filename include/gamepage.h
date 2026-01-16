@@ -7,6 +7,7 @@
 #include <QList>
 #include <QTimer>
 #include <QElapsedTimer>
+#include <QColor>
 
 #include "enemy.h"
 #include "tower.h"
@@ -20,6 +21,7 @@ class QVBoxLayout;
 class QHBoxLayout;
 class QGraphicsRectItem;
 class PlacementValidator;
+class QGraphicsOpacityEffect;
 
 class GamePage : public QWidget
 {
@@ -59,6 +61,7 @@ private:
     // 游戏逻辑（UI 相关）
     void updateHoverHighlight(const QPointF &scenePos);
     void initPlacementValidator();
+    void updateGameStats();
     void drawPlacementAreas();
     void showFloatingTip(const QString &text, const QPointF &scenePos, const QColor &color);
     void showUpgradeEffect(const QPointF &scenePos);
@@ -70,6 +73,17 @@ private:
     // 塔和子弹管理
     void pauseAllTowersAndBullets();
     void resumeAllTowersAndBullets();
+
+    struct ResultViewContext
+    {
+        QWidget *overlay;
+        QWidget *panel;
+        QVBoxLayout *layout;
+        QGraphicsOpacityEffect *opacityEffect;
+    };
+
+    ResultViewContext createResultWrapper(const QString &panelStyle, const QColor &shadowColor);
+    void playResultAnimation(const ResultViewContext &ctx);
 
     // 鼠标事件
     void mousePressEvent(QMouseEvent *event) override;
