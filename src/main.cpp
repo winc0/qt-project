@@ -1,4 +1,5 @@
 #include "include/mainwindow.h"
+#include "include/config.h"
 
 #include <QApplication>
 #include <QCoreApplication>
@@ -8,8 +9,9 @@ int main(int argc, char *argv[])
 {
     QApplication a(argc, argv);
 
-    QCoreApplication::setOrganizationName("TowerDefenseStudio");
-    QCoreApplication::setApplicationName("TowerDefenseGame");
+    // 设置应用程序信息（用于 QSettings 存储路径）
+    QCoreApplication::setOrganizationName(GameConfig::ORG_NAME);
+    QCoreApplication::setApplicationName(GameConfig::APP_NAME);
 
     qDebug() << "Application starting...";
 

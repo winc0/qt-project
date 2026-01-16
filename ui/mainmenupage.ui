@@ -45,7 +45,7 @@
    <item>
     <widget class="QLabel" name="titleLabel">
      <property name="text">
-      <string>保卫萝卜</string>
+      <string>塔之进化</string>
      </property>
      <property name="alignment">
       <set>Qt::AlignCenter</set>

@@ -16,9 +16,9 @@ MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent), stackedWidget(nullptr), gamePage(nullptr), mainMenuPage(nullptr), levelSelectPage(nullptr)
 {
     // 设置全局的 QSettings 组织名和应用名
-    QApplication::setApplicationName("TowerDefenseGame");
-    QApplication::setApplicationVersion("1.0.0");
-    QApplication::setOrganizationName("TowerDefenseStudio");
+    QApplication::setApplicationName(GameConfig::APP_NAME);
+    QApplication::setApplicationVersion(GameConfig::APP_VER);
+    QApplication::setOrganizationName(GameConfig::ORG_NAME);
 
     QWidget *central = new QWidget(this);
     QVBoxLayout *layout = new QVBoxLayout(central);
@@ -55,7 +55,7 @@ MainWindow::MainWindow(QWidget *parent)
     connect(gamePage, &GamePage::gameOver,
             this, &MainWindow::onGameOver);
 
-    setWindowTitle("保卫萝卜 - TowerDefenseGame");
+    setWindowTitle("塔之进化 - TowerEvolution");
     resize(GameConfig::WINDOW_WIDTH, GameConfig::WINDOW_HEIGHT);
 }
 

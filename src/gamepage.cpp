@@ -1028,7 +1028,7 @@ void GamePage::saveLevelProgress(bool levelCompleted)
     int wave = gameManager->getCurrentWave();
 
     // 使用组织名和应用名来初始化 QSettings
-    QSettings settings("TowerDefenseStudio", "TowerDefenseGame");
+    QSettings settings(GameConfig::ORG_NAME, GameConfig::APP_NAME);
 
     QString mapKey = QString("levels/map_%1").arg(static_cast<int>(currentMapId));
     int bestWave = settings.value(mapKey + "/bestWave", 0).toInt();
@@ -1066,7 +1066,7 @@ void GamePage::saveLevelProgress(bool levelCompleted)
     settings.sync();
     
     // 验证数据是否正确保存
-    QSettings verifySettings("TowerDefenseStudio", "TowerDefenseGame");
+    QSettings verifySettings(GameConfig::ORG_NAME, GameConfig::APP_NAME);
     int verifyUnlocked = verifySettings.value("levels/unlocked_max_index", -1).toInt();
     int verifyWave = verifySettings.value(QString("levels/map_%1").arg(static_cast<int>(currentMapId)) + "/bestWave", -1).toInt();
     qDebug() << "[LevelProgress] Verify after save - unlocked_max_index:" << verifyUnlocked << "bestWave:" << verifyWave;

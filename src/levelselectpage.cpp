@@ -75,7 +75,7 @@ void LevelSelectPage::initUI()
 
 void LevelSelectPage::loadProgress()
 {
-    QSettings settings("TowerDefenseStudio", "TowerDefenseGame");
+    QSettings settings(GameConfig::ORG_NAME, GameConfig::APP_NAME);
 
     int unlockedMaxIndex = settings.value("levels/unlocked_max_index", 0).toInt();
 

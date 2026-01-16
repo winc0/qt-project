@@ -10,6 +10,11 @@
 // - 页面内部纯绘制用的“像素偏移”“控件间距”等局部魔法数保留在各自页面中
 namespace GameConfig
 {
+    // ======================== 应用信息配置 ========================
+    const char* const APP_NAME = "TowerEvolutionGame";
+    const char* const ORG_NAME = "TowerEvolutionStudio";
+    const char *const APP_VER = "1.0.0";
+
     // ======================== 窗口与网格配置 ========================
 
     // 用途：游戏主窗口宽度（像素），决定渲染区域和地图宽度
