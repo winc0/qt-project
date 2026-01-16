@@ -3,6 +3,7 @@
 #include "include/config.h"
 #include "include/mainwindow.h"
 #include "include/gamemanager.h"
+#include "include/placementvalidator.h"
 
 #include "ui_gamepage.h"
 
@@ -31,7 +32,6 @@
 #include <QApplication>
 #include <QSettings>
 #include <cmath>
-#include "include/placementvalidator.h"
 
 GamePage::GamePage(QWidget *parent)
     : QWidget(parent),
@@ -488,6 +488,7 @@ void GamePage::drawPlacementAreas()
     }
 }
 
+// AI-generated function
 void GamePage::showFloatingTip(const QString &text, const QPointF &scenePos, const QColor &color)
 {
     QGraphicsTextItem *tipItem = new QGraphicsTextItem(text);
@@ -649,6 +650,7 @@ void GamePage::resetGame()
     updateGameStats();
 }
 
+// AI-generated function
 GamePage::ResultViewContext GamePage::createResultWrapper(const QString &panelStyle, const QColor &shadowColor)
 {
     if (resultOverlay)
@@ -694,6 +696,7 @@ GamePage::ResultViewContext GamePage::createResultWrapper(const QString &panelSt
     return ctx;
 }
 
+// AI-generated function
 void GamePage::playResultAnimation(const ResultViewContext &ctx)
 {
     if (!ctx.opacityEffect || !ctx.panel)
@@ -722,6 +725,7 @@ void GamePage::playResultAnimation(const ResultViewContext &ctx)
     scaleAnim->start(QAbstractAnimation::DeleteWhenStopped);
 }
 
+// AI-generated function
 void GamePage::showGameOverDialog()
 {
     if (gameManager)
@@ -883,6 +887,7 @@ void GamePage::showGameOverDialog()
     resultPanel->show();
 }
 
+// AI-generated function
 void GamePage::showLevelCompleteDialog()
 {
     if (gameManager)
@@ -1367,6 +1372,7 @@ bool GamePage::eventFilter(QObject *obj, QEvent *event)
     return QObject::eventFilter(obj, event);
 }
 
+// AI-generated function
 void GamePage::updateHoverHighlight(const QPointF &scenePos)
 {
     static QGraphicsRectItem *lastHighlight = nullptr;
@@ -1428,6 +1434,7 @@ void GamePage::updateHoverHighlight(const QPointF &scenePos)
     qDebug() << "Hover highlight at grid (" << gridX << "," << gridY << ")";
 }
 
+// AI-generated function
 void GamePage::pauseAllEnemies()
 {
     if (!gameManager)
@@ -1442,6 +1449,7 @@ void GamePage::pauseAllEnemies()
     }
 }
 
+// AI-generated function
 void GamePage::resumeAllEnemies()
 {
     if (!gameManager)
@@ -1456,6 +1464,7 @@ void GamePage::resumeAllEnemies()
     }
 }
 
+// AI-generated function
 void GamePage::pauseAllTowersAndBullets()
 {
     if (!gameManager)
@@ -1481,6 +1490,7 @@ void GamePage::pauseAllTowersAndBullets()
     }
 }
 
+// AI-generated function
 void GamePage::resumeAllTowersAndBullets()
 {
     if (!gameManager)
@@ -1506,6 +1516,7 @@ void GamePage::resumeAllTowersAndBullets()
     }
 }
 
+// AI-generated function
 void GamePage::showPauseMenu()
 {
     if (pauseOverlay) return;
@@ -1609,6 +1620,7 @@ void GamePage::showPauseMenu()
     pausePanel->show();
 }
 
+// AI-generated function
 void GamePage::hidePauseMenu()
 {
     if (pauseOverlay)

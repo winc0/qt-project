@@ -7,6 +7,7 @@
 #include <QPointer>
 
 // 基于象限划分的敌人空间索引
+// AI-generated class
 class Quadtree
 {
 public:

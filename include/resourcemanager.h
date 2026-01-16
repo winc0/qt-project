@@ -9,6 +9,7 @@
 #include <QHash>
 
 // 管理图片与音效等共享资源
+// AI-generated class
 class ResourceManager : public QObject
 {
     Q_OBJECT

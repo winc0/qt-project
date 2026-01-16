@@ -7,6 +7,7 @@
 #include <QVector>
 
 // 校验建塔位置是否合法
+// AI-generated class
 class PlacementValidator
 {
 public:
