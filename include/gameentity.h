@@ -33,6 +33,7 @@ public:
     EntityType getType() const { return type; }
     int getHealth() const { return health; }
     void setHealth(int newHealth);
+    void setMaxHealth(int newMaxHealth);
 
     virtual void update() = 0; // 纯虚函数，所有实体必须实现更新逻辑
 

@@ -102,7 +102,7 @@ void GameManager::spawnEnemy()
     if (!gameRunning || paused)
         return;
 
-    if (enemiesSpawnedThisWave >= GameConfig::WAVE_ENEMY_COUNT * currentWave)
+    if (enemiesSpawnedThisWave >= GameConfig::WAVE_ENEMY_COUNT)
     {
         if (!waveSpawnComplete)
         {
@@ -123,8 +123,12 @@ void GameManager::spawnEnemy()
         int index = QRandomGenerator::global()->bounded(GameConfig::ENEMY_TYPE_NUMBER);
         enemyType = index;
     }
-
     QPointer<Enemy> enemy = new Enemy(enemyType, this);
+    int waveHealth = calculateWaveHealth();
+    enemy->setMaxHealth(waveHealth);
+    enemy->setHealth(waveHealth);
+    float waveSpeed = calculateWaveSpeed();
+    enemy->setSpeed(waveSpeed);
     enemy->setPath(pathPoints);
 
     enemies.append(enemy);
@@ -306,6 +310,21 @@ int GameManager::getWaveSpawnInterval() const
     }
 
     return interval;
+}
+
+int GameManager::calculateWaveHealth() const
+{
+    // 每波敌人血量：ENEMY_HEALTH * (1 + 0.5 * (currentWave - 1))
+    const int base = GameConfig::ENEMY_HEALTH;
+    qreal factor = 1.0 + 0.5 * (currentWave - 1);
+    int hp = static_cast<int>(base * factor);
+    return hp;
+}
+
+float GameManager::calculateWaveSpeed() const
+{
+    float factor = 1.0f + 0.1f * static_cast<float>(currentWave - 1);
+    return GameConfig::ENEMY_SPEED * factor;
 }
 
 bool GameManager::isEnemyAtAnyEndPoint(QPointer<Enemy> enemy) const

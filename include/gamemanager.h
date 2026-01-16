@@ -76,6 +76,8 @@ private:
     bool isEnemyAtAnyEndPoint(QPointer<Enemy> enemy) const;
 
     int getTowerCost(Tower::TowerType type) const;
+    int calculateWaveHealth() const;
+    float calculateWaveSpeed() const;
 
 private:
     QList<QPointer<Enemy>> enemies;

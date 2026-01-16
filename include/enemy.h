@@ -28,6 +28,8 @@ public:
     EnemyState getState() const { return currentState; }
     void setState(EnemyState state);
     QPointF getCenterPosition() const;
+    float getSpeed() const { return speed; }
+    void setSpeed(float newSpeed) { speed = newSpeed; }
     
     // 暂停/恢复敌人移动
     void pauseMovement() { if (moveTimer) moveTimer->stop(); }

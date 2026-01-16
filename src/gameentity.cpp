@@ -14,3 +14,10 @@ void GameEntity::setHealth(int newHealth)
 {
     health = qMax(0, qMin(newHealth, maxHealth));
 }
+
+void GameEntity::setMaxHealth(int newMaxHealth)
+{
+    maxHealth = qMax(0, newMaxHealth);
+    if (health > maxHealth)
+        health = maxHealth;
+}
