@@ -4,6 +4,8 @@
 #include "include/mainwindow.h"
 #include "include/gamemanager.h"
 
+#include "ui_gamepage.h"
+
 #include <QMouseEvent>
 #include <QGraphicsSceneMouseEvent>
 #include <QVBoxLayout>
@@ -33,6 +35,7 @@
 
 GamePage::GamePage(QWidget *parent)
     : QWidget(parent),
+      ui(new Ui::GamePage),
       gameScene(nullptr),
       gameView(nullptr),
       placementValidator(nullptr),
@@ -46,7 +49,8 @@ GamePage::GamePage(QWidget *parent)
 {
     qDebug() << "GamePage constructor called";
 
-    // 设置固定大小
+    ui->setupUi(this);
+
     setFixedSize(GameConfig::WINDOW_WIDTH, GameConfig::WINDOW_HEIGHT);
 
     initUI();
@@ -170,6 +174,7 @@ GamePage::GamePage(QWidget *parent)
 
 GamePage::~GamePage()
 {
+    delete ui;
     if (userItem)
     {
         if (userItem->scene())
@@ -238,24 +243,15 @@ void GamePage::initUI()
 {
     qDebug() << "Initializing GamePage UI";
 
-    // 设置主页面大小
     setFixedSize(GameConfig::WINDOW_WIDTH, GameConfig::WINDOW_HEIGHT);
 
-    // 主布局
-    mainLayout = new QVBoxLayout(this);
-    mainLayout->setContentsMargins(0, 0, 0, 0);
-    mainLayout->setSpacing(0);
+    mainLayout = qobject_cast<QVBoxLayout *>(layout());
 
-    // 创建控制面板 - 作为浮动面板，不添加到布局中
     controlPanel = new QWidget(this);
     controlPanel->setFixedSize(800, 120);
-    controlPanel->setGeometry(0, 80, 800, 120); // 设置位置为顶部
+    controlPanel->setGeometry(0, 80, 800, 120);
 
-    // 控制面板提升到最前面
     controlPanel->raise();
-
-    // 使用绝对定位而不是布局
-    // 移除之前的布局设置
 
     QFont infoFont("Microsoft YaHei", 12, QFont::Bold);
     QFont numberFont("Microsoft YaHei", 24, QFont::Bold);
@@ -358,12 +354,12 @@ void GamePage::initGameScene()
 {
     qDebug() << "Initializing game scene";
 
-    // 创建游戏场景 - 占据整个800x600
     gameScene = new QGraphicsScene(this);
     gameScene->setSceneRect(0, 0, GameConfig::WINDOW_WIDTH, GameConfig::WINDOW_HEIGHT);
 
-    // 创建视图 - 占据整个GamePage
-    gameView = new QGraphicsView(gameScene, this);
+    gameView = ui->gameView;
+    if (gameView)
+        gameView->setScene(gameScene);
     gameView->setRenderHint(QPainter::Antialiasing);
     gameView->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
     gameView->setVerticalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
@@ -374,15 +370,10 @@ void GamePage::initGameScene()
     gameView->viewport()->setMouseTracking(true);
     gameView->viewport()->installEventFilter(this);
 
-    // 绘制背景
     drawBackground();
     drawGrid();
     drawPlacementAreas();
 
-    // 添加到主布局
-    mainLayout->addWidget(gameView);
-
-    // 将控制面板提升到最前面（在gameView添加后）
     controlPanel->raise();
 
     qDebug() << "Game scene initialized, view size:" << gameView->size();

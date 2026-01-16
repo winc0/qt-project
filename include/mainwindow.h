@@ -7,6 +7,7 @@
 // 前向声明
 class GamePage;
 class MainMenuPage;
+class LevelSelectPage;
 class QStackedWidget;
 
 class MainWindow : public QMainWindow
@@ -27,6 +28,7 @@ private:
     QStackedWidget *stackedWidget;
     GamePage *gamePage;
     MainMenuPage *mainMenuPage;
+    LevelSelectPage *levelSelectPage;
 };
 
 #endif // MAINWINDOW_H

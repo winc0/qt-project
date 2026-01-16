@@ -2,20 +2,28 @@
 #define LEVELSELECTPAGE_H
 
 #include "config.h"
-#include <QDialog>
+#include <QWidget>
 
 class QPushButton;
 class QLabel;
 class QVBoxLayout;
 
-class LevelSelectPage : public QDialog
+namespace Ui
+{
+class LevelSelectPage;
+}
+
+class LevelSelectPage : public QWidget
 {
     Q_OBJECT
 
 public:
     explicit LevelSelectPage(QWidget *parent = nullptr);
+    ~LevelSelectPage();
 
-    GameConfig::MapId selectedMap() const;
+signals:
+    void startGameRequested(GameConfig::MapId mapId);
+    void returnToMainMenuRequested();
 
 private slots:
     void onMap1Clicked();
@@ -26,6 +34,8 @@ private:
     void initUI();
     void loadProgress();
 
+    Ui::LevelSelectPage *ui;
+
     GameConfig::MapId mapId;
     QLabel *map1StatusLabel;
     QLabel *map2StatusLabel;
@@ -35,4 +45,3 @@ private:
 };
 
 #endif
-

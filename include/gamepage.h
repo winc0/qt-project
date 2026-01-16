@@ -23,6 +23,11 @@ class QGraphicsRectItem;
 class PlacementValidator;
 class QGraphicsOpacityEffect;
 
+namespace Ui
+{
+class GamePage;
+}
+
 class GamePage : public QWidget
 {
     Q_OBJECT
@@ -85,17 +90,16 @@ private:
     ResultViewContext createResultWrapper(const QString &panelStyle, const QColor &shadowColor);
     void playResultAnimation(const ResultViewContext &ctx);
 
-    // 鼠标事件
     void mousePressEvent(QMouseEvent *event) override;
 
-    // 游戏状态
+    Ui::GamePage *ui;
+
     QGraphicsScene *gameScene;
     QGraphicsView *gameView;
     QGraphicsPixmapItem *userItem;
     PlacementValidator *placementValidator;
     GameManager *gameManager;
 
-    // UI元素
     QWidget *controlPanel;
     QLabel *goldLabel;
     QLabel *livesLabel;
@@ -107,12 +111,10 @@ private:
     QWidget *pauseOverlay;
     QWidget *pausePanel;
 
-    // 布局
     QVBoxLayout *mainLayout;
     QHBoxLayout *infoLayout;
     QHBoxLayout *buttonLayout;
 
-    // 路径点
     QVector<QPointF> pathPoints;
 
     GameConfig::MapId currentMapId;

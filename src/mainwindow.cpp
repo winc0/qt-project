@@ -2,6 +2,7 @@
 #include "include/mainwindow.h"
 #include "include/gamepage.h"
 #include "include/mainmenupage.h"
+#include "include/levelselectpage.h"
 
 #include <QStackedWidget>
 #include <QVBoxLayout>
@@ -12,7 +13,7 @@
 #include <QApplication>
 
 MainWindow::MainWindow(QWidget *parent)
-    : QMainWindow(parent), stackedWidget(nullptr), gamePage(nullptr), mainMenuPage(nullptr)
+    : QMainWindow(parent), stackedWidget(nullptr), gamePage(nullptr), mainMenuPage(nullptr), levelSelectPage(nullptr)
 {
     // 设置全局的 QSettings 组织名和应用名
     QApplication::setApplicationName("TowerDefenseGame");
@@ -30,23 +31,31 @@ MainWindow::MainWindow(QWidget *parent)
     setCentralWidget(central);
 
     mainMenuPage = new MainMenuPage(this);
+    levelSelectPage = new LevelSelectPage(this);
     gamePage = new GamePage(this);
 
     stackedWidget->addWidget(mainMenuPage);
+    stackedWidget->addWidget(levelSelectPage);
     stackedWidget->addWidget(gamePage);
     stackedWidget->setCurrentWidget(mainMenuPage);
 
-    // 连接信号
-    connect(mainMenuPage, &MainMenuPage::startGameRequested,
-            this, &MainWindow::switchToGamePage);
+    connect(mainMenuPage, &MainMenuPage::openLevelSelectRequested,
+            this, [this]() {
+                if (stackedWidget)
+                    stackedWidget->setCurrentIndex(1);
+            });
     connect(mainMenuPage, &MainMenuPage::exitGameRequested,
             this, &QApplication::quit);
+    connect(levelSelectPage, &LevelSelectPage::startGameRequested,
+            this, &MainWindow::switchToGamePage);
+    connect(levelSelectPage, &LevelSelectPage::returnToMainMenuRequested,
+            this, &MainWindow::switchToMainMenu);
     connect(gamePage, &GamePage::returnToMainMenu,
             this, &MainWindow::switchToMainMenu);
     connect(gamePage, &GamePage::gameOver,
             this, &MainWindow::onGameOver);
 
-    setWindowTitle("保卫萝卜 - TD Defense Game");
+    setWindowTitle("保卫萝卜 - TowerDefenseGame");
     resize(GameConfig::WINDOW_WIDTH, GameConfig::WINDOW_HEIGHT);
 }
 
@@ -57,7 +66,7 @@ MainWindow::~MainWindow()
 void MainWindow::switchToGamePage(GameConfig::MapId mapId)
 {
     if (stackedWidget)
-        stackedWidget->setCurrentIndex(1);
+        stackedWidget->setCurrentIndex(2);
     if (gamePage)
     {
         gamePage->setMap(mapId);

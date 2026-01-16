@@ -1,0 +1,468 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ui version="4.0">
+ <class>LevelSelectPage</class>
+ <widget class="QWidget" name="LevelSelectPage">
+  <property name="geometry">
+   <rect>
+    <x>0</x>
+    <y>0</y>
+    <width>800</width>
+    <height>600</height>
+   </rect>
+  </property>
+  <property name="windowTitle">
+   <string>LevelSelectPage</string>
+  </property>
+  <layout class="QVBoxLayout" name="mainLayout">
+   <property name="spacing">
+    <number>0</number>
+   </property>
+   <property name="leftMargin">
+    <number>0</number>
+   </property>
+   <property name="topMargin">
+    <number>0</number>
+   </property>
+   <property name="rightMargin">
+    <number>0</number>
+   </property>
+   <property name="bottomMargin">
+    <number>0</number>
+   </property>
+   <item>
+    <spacer name="topSpacer">
+     <property name="orientation">
+      <enum>Qt::Vertical</enum>
+     </property>
+     <property name="sizeHint" stdset="0">
+      <size>
+       <width>20</width>
+       <height>120</height>
+      </size>
+     </property>
+    </spacer>
+   </item>
+   <item>
+    <widget class="QLabel" name="titleLabel">
+     <property name="text">
+      <string>选择关卡</string>
+     </property>
+     <property name="alignment">
+      <set>Qt::AlignCenter</set>
+     </property>
+     <property name="font">
+      <font>
+       <family>Microsoft YaHei</family>
+       <pointsize>36</pointsize>
+       <weight>75</weight>
+       <bold>true</bold>
+      </font>
+     </property>
+     <property name="styleSheet">
+      <string notr="true">QLabel {
+   color: #2c3e50;
+   background-color: rgba(255, 255, 255, 200);
+   padding: 16px;
+   border-radius: 18px;
+   border: 2px solid #95a5a6;
+}</string>
+     </property>
+    </widget>
+   </item>
+   <item>
+    <spacer name="middleSpacer">
+     <property name="orientation">
+      <enum>Qt::Vertical</enum>
+     </property>
+     <property name="sizeHint" stdset="0">
+      <size>
+       <width>20</width>
+       <height>60</height>
+      </size>
+     </property>
+    </spacer>
+   </item>
+   <item alignment="Qt::AlignHCenter">
+    <widget class="QWidget" name="levelContainer">
+     <property name="minimumSize">
+      <size>
+       <width>640</width>
+       <height>0</height>
+      </size>
+     </property>
+     <property name="maximumSize">
+      <size>
+       <width>640</width>
+       <height>16777215</height>
+      </size>
+     </property>
+     <property name="styleSheet">
+      <string notr="true">background-color: rgba(255, 255, 255, 200); border-radius: 15px;</string>
+     </property>
+     <layout class="QVBoxLayout" name="levelContainerLayout">
+      <property name="spacing">
+       <number>20</number>
+      </property>
+      <property name="leftMargin">
+       <number>24</number>
+      </property>
+      <property name="topMargin">
+       <number>24</number>
+      </property>
+      <property name="rightMargin">
+       <number>24</number>
+      </property>
+      <property name="bottomMargin">
+       <number>24</number>
+      </property>
+      <item>
+       <layout class="QHBoxLayout" name="levelLayout">
+        <property name="spacing">
+         <number>20</number>
+        </property>
+        <item>
+         <widget class="QWidget" name="map1Card">
+          <layout class="QVBoxLayout" name="map1Layout">
+           <property name="spacing">
+            <number>8</number>
+           </property>
+           <item>
+            <widget class="QLabel" name="map1Preview">
+             <property name="minimumSize">
+              <size>
+               <width>260</width>
+               <height>180</height>
+              </size>
+             </property>
+             <property name="maximumSize">
+              <size>
+               <width>260</width>
+               <height>180</height>
+              </size>
+             </property>
+             <property name="scaledContents">
+              <bool>true</bool>
+             </property>
+            </widget>
+           </item>
+           <item>
+            <widget class="QLabel" name="map1NameLabel">
+             <property name="text">
+              <string>关卡 1 - 农田之路</string>
+             </property>
+             <property name="alignment">
+              <set>Qt::AlignCenter</set>
+             </property>
+             <property name="font">
+              <font>
+               <family>Microsoft YaHei</family>
+               <pointsize>16</pointsize>
+               <weight>75</weight>
+               <bold>true</bold>
+              </font>
+             </property>
+             <property name="styleSheet">
+              <string notr="true">color: #34495e;</string>
+             </property>
+            </widget>
+           </item>
+           <item>
+            <widget class="QLabel" name="map1StatusLabel">
+             <property name="alignment">
+              <set>Qt::AlignCenter</set>
+             </property>
+             <property name="font">
+              <font>
+               <family>Microsoft YaHei</family>
+               <pointsize>12</pointsize>
+              </font>
+             </property>
+             <property name="styleSheet">
+              <string notr="true">color: #27ae60;</string>
+             </property>
+            </widget>
+           </item>
+           <item>
+            <widget class="QLabel" name="map1WaveLabel">
+             <property name="alignment">
+              <set>Qt::AlignCenter</set>
+             </property>
+             <property name="font">
+              <font>
+               <family>Microsoft YaHei</family>
+               <pointsize>12</pointsize>
+              </font>
+             </property>
+             <property name="styleSheet">
+              <string notr="true">color: #7f8c8d;</string>
+             </property>
+            </widget>
+           </item>
+           <item>
+            <widget class="QPushButton" name="map1Button">
+             <property name="text">
+              <string>选择关卡 1</string>
+             </property>
+             <property name="minimumSize">
+              <size>
+               <width>0</width>
+               <height>40</height>
+              </size>
+             </property>
+             <property name="styleSheet">
+              <string notr="true">QPushButton {
+   font-size: 16px;
+   font-weight: bold;
+   color: white;
+   background-color: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 #4CAF50, stop:1 #45a049);
+   border: 2px solid #388E3C;
+   border-radius: 8px;
+   padding: 6px;
+}
+QPushButton:hover {
+   background-color: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 #45a049, stop:1 #4CAF50);
+   border: 2px solid #2E7D32;
+}
+QPushButton:pressed {
+   background-color: #3d8b40;
+   border: 2px solid #1B5E20;
+}</string>
+             </property>
+            </widget>
+           </item>
+          </layout>
+         </widget>
+        </item>
+        <item>
+         <widget class="QWidget" name="map2Card">
+          <layout class="QVBoxLayout" name="map2Layout">
+           <property name="spacing">
+            <number>8</number>
+           </property>
+           <item>
+            <widget class="QLabel" name="map2Preview">
+             <property name="minimumSize">
+              <size>
+               <width>260</width>
+               <height>180</height>
+              </size>
+             </property>
+             <property name="maximumSize">
+              <size>
+               <width>260</width>
+               <height>180</height>
+              </size>
+             </property>
+             <property name="scaledContents">
+              <bool>true</bool>
+             </property>
+            </widget>
+           </item>
+           <item>
+            <widget class="QLabel" name="map2NameLabel">
+             <property name="text">
+              <string>关卡 2 - 神秘森林</string>
+             </property>
+             <property name="alignment">
+              <set>Qt::AlignCenter</set>
+             </property>
+             <property name="font">
+              <font>
+               <family>Microsoft YaHei</family>
+               <pointsize>16</pointsize>
+               <weight>75</weight>
+               <bold>true</bold>
+              </font>
+             </property>
+             <property name="styleSheet">
+              <string notr="true">color: #34495e;</string>
+             </property>
+            </widget>
+           </item>
+           <item>
+            <widget class="QLabel" name="map2StatusLabel">
+             <property name="alignment">
+              <set>Qt::AlignCenter</set>
+             </property>
+             <property name="font">
+              <font>
+               <family>Microsoft YaHei</family>
+               <pointsize>12</pointsize>
+              </font>
+             </property>
+             <property name="styleSheet">
+              <string notr="true">color: #c0392b;</string>
+             </property>
+            </widget>
+           </item>
+           <item>
+            <widget class="QLabel" name="map2WaveLabel">
+             <property name="alignment">
+              <set>Qt::AlignCenter</set>
+             </property>
+             <property name="font">
+              <font>
+               <family>Microsoft YaHei</family>
+               <pointsize>12</pointsize>
+              </font>
+             </property>
+             <property name="styleSheet">
+              <string notr="true">color: #7f8c8d;</string>
+             </property>
+            </widget>
+           </item>
+           <item>
+            <widget class="QPushButton" name="map2Button">
+             <property name="text">
+              <string>选择关卡 2</string>
+             </property>
+             <property name="minimumSize">
+              <size>
+               <width>0</width>
+               <height>40</height>
+              </size>
+             </property>
+             <property name="styleSheet">
+              <string notr="true">QPushButton {
+   font-size: 16px;
+   font-weight: bold;
+   color: white;
+   background-color: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 #9b59b6, stop:1 #8e44ad);
+   border: 2px solid #7d3c98;
+   border-radius: 8px;
+   padding: 6px;
+}
+QPushButton:disabled {
+   background-color: #bdc3c7;
+   border: 2px solid #95a5a6;
+   color: #ecf0f1;
+}
+QPushButton:hover:enabled {
+   background-color: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 #8e44ad, stop:1 #9b59b6);
+   border: 2px solid #6c3483;
+}
+QPushButton:pressed:enabled {
+   background-color: #7d3c98;
+   border: 2px solid #5b2c6f;
+}</string>
+             </property>
+            </widget>
+           </item>
+          </layout>
+         </widget>
+        </item>
+       </layout>
+      </item>
+      <item>
+       <widget class="QWidget" name="bottomButtonContainer">
+        <layout class="QHBoxLayout" name="bottomLayout">
+         <property name="spacing">
+          <number>20</number>
+         </property>
+         <property name="leftMargin">
+          <number>0</number>
+         </property>
+         <property name="topMargin">
+          <number>0</number>
+         </property>
+         <property name="rightMargin">
+          <number>0</number>
+         </property>
+         <property name="bottomMargin">
+          <number>0</number>
+         </property>
+         <item>
+          <spacer name="leftSpacer">
+           <property name="orientation">
+            <enum>Qt::Horizontal</enum>
+           </property>
+           <property name="sizeHint" stdset="0">
+            <size>
+             <width>40</width>
+             <height>20</height>
+            </size>
+           </property>
+          </spacer>
+         </item>
+         <item>
+          <widget class="QPushButton" name="cancelButton">
+           <property name="text">
+            <string>返回主菜单</string>
+           </property>
+           <property name="minimumSize">
+            <size>
+             <width>0</width>
+             <height>40</height>
+            </size>
+           </property>
+           <property name="styleSheet">
+            <string notr="true">QPushButton {
+   font-size: 16px;
+   font-weight: bold;
+   color: white;
+   background-color: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 #95a5a6, stop:1 #7f8c8d);
+   border: 2px solid #7f8c8d;
+   border-radius: 8px;
+   padding: 6px;
+}
+QPushButton:hover {
+   background-color: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 #7f8c8d, stop:1 #95a5a6);
+   border: 2px solid #707b7c;
+}
+QPushButton:pressed {
+   background-color: #707b7c;
+   border: 2px solid #515a5a;
+}</string>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <spacer name="rightSpacer">
+           <property name="orientation">
+            <enum>Qt::Horizontal</enum>
+           </property>
+           <property name="sizeHint" stdset="0">
+            <size>
+             <width>40</width>
+             <height>20</height>
+            </size>
+           </property>
+          </spacer>
+         </item>
+        </layout>
+       </widget>
+      </item>
+     </layout>
+    </widget>
+   </item>
+   <item>
+    <spacer name="bottomSpacer">
+     <property name="orientation">
+      <enum>Qt::Vertical</enum>
+     </property>
+     <property name="sizeHint" stdset="0">
+      <size>
+       <width>20</width>
+       <height>120</height>
+      </size>
+     </property>
+    </spacer>
+   </item>
+  </layout>
+  <widget class="QLabel" name="backgroundLabel">
+   <property name="geometry">
+    <rect>
+     <x>0</x>
+     <y>0</y>
+     <width>800</width>
+     <height>600</height>
+    </rect>
+   </property>
+   <property name="scaledContents">
+    <bool>true</bool>
+   </property>
+  </widget>
+ </widget>
+ <resources/>
+ <connections/>
+</ui>
