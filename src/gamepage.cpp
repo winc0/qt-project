@@ -170,12 +170,15 @@ GamePage::GamePage(QWidget *parent)
 
 GamePage::~GamePage()
 {
-    if (userItem && gameScene)
+    if (userItem)
     {
-        gameScene->removeItem(userItem);
+        if (userItem->scene())
+        {
+            userItem->scene()->removeItem(userItem);
+        }
+        delete userItem;
+        userItem = nullptr;
     }
-    delete userItem;
-    userItem = nullptr;
     qDeleteAll(placementAreaItems);
     placementAreaItems.clear();
     delete placementValidator;
@@ -189,6 +192,15 @@ void GamePage::setMap(GameConfig::MapId mapId)
     if (gameScene)
     {
         updateHoverHighlight(QPointF(-1, -1));
+        if (userItem)
+        {
+            if (userItem->scene())
+            {
+                userItem->scene()->removeItem(userItem);
+            }
+            delete userItem;
+            userItem = nullptr;
+        }
         gameScene->clear();
     }
 
@@ -384,9 +396,12 @@ void GamePage::drawBackground()
         const GameConfig::EndPointConfig &end = endPointAreas.first();
         QPixmap userPixmap = rm.getUserPixmap(ResourceManager::USER_WALK);
 
-        if (userItem && userItem->scene())
+        if (userItem)
         {
-            gameScene->removeItem(userItem);
+            if (userItem->scene())
+            {
+                userItem->scene()->removeItem(userItem);
+            }
             delete userItem;
             userItem = nullptr;
         }
@@ -879,7 +894,7 @@ void GamePage::showLevelCompleteDialog()
     resultOverlay->setAttribute(Qt::WA_TransparentForMouseEvents, false);
 
     resultPanel = new QWidget(resultOverlay);
-    resultPanel->setFixedSize(500, 360);
+    resultPanel->setFixedSize(500, 420);
     resultPanel->setStyleSheet(
         "QWidget {"
         "   background: qlineargradient(x1:0, y1:0, x2:1, y2:1, stop:0 #ffffff, stop:1 #f5f5f5);"
@@ -887,13 +902,27 @@ void GamePage::showLevelCompleteDialog()
         "   border: 1px solid #2ecc71;"
         "}"
     );
+
+    QGraphicsDropShadowEffect *shadowEffect = new QGraphicsDropShadowEffect();
+    shadowEffect->setBlurRadius(12);
+    shadowEffect->setColor(QColor(39, 174, 96, 200));
+    shadowEffect->setOffset(0, 2);
+    resultPanel->setGraphicsEffect(shadowEffect);
     resultPanel->move((width() - resultPanel->width()) / 2, (height() - resultPanel->height()) / 2);
+
+    QWidget *animContainer = new QWidget(resultPanel);
+    animContainer->setGeometry(resultPanel->rect());
+    animContainer->lower();
+
+    QGraphicsOpacityEffect *effect = new QGraphicsOpacityEffect(animContainer);
+    animContainer->setGraphicsEffect(effect);
+    effect->setOpacity(0.0);
 
     QVBoxLayout *layout = new QVBoxLayout(resultPanel);
     layout->setContentsMargins(36, 48, 36, 48);
     layout->setSpacing(20);
 
-    QLabel *titleLabel = new QLabel("关卡完成", resultPanel);
+    QLabel *titleLabel = new QLabel("胜利！", resultPanel);
     titleLabel->setAlignment(Qt::AlignCenter);
     titleLabel->setFont(QFont("Microsoft YaHei", 32, QFont::Bold));
     titleLabel->setStyleSheet("color: #27ae60;");
@@ -902,28 +931,123 @@ void GamePage::showLevelCompleteDialog()
 
     int wave = gameManager ? gameManager->getCurrentWave() : 1;
     int kill = gameManager ? gameManager->getKillCount() : 0;
+    int gold = gameManager ? gameManager->getGold() : 0;
+    int mapIndex = static_cast<int>(currentMapId) + 1;
 
-    QLabel *infoLabel = new QLabel(QString("成功防守到第 %1 波，击败 %2 名敌人").arg(wave).arg(kill), resultPanel);
-    infoLabel->setAlignment(Qt::AlignCenter);
-    infoLabel->setFont(QFont("Microsoft YaHei", 16, QFont::Normal));
-    infoLabel->setStyleSheet("color: #34495e; padding: 8px 0px;");
-    layout->addWidget(infoLabel);
+    int score = kill * 10 + wave * 50 + gold;
 
-    QLabel *tipLabel = new QLabel("3 秒后自动返回关卡选择界面", resultPanel);
-    tipLabel->setAlignment(Qt::AlignCenter);
-    tipLabel->setFont(QFont("Microsoft YaHei", 14, QFont::Normal));
-    tipLabel->setStyleSheet("color: #7f8c8d; padding: 4px 0px;");
-    layout->addWidget(tipLabel);
+    QLabel *levelLabel = new QLabel(QString("当前关卡：第 %1 关").arg(mapIndex), resultPanel);
+    QLabel *waveLabel = new QLabel(QString("防守波次：第 %1 波").arg(wave), resultPanel);
+    QLabel *killLabel = new QLabel(QString("击败敌人数量：%1").arg(kill), resultPanel);
+    QLabel *goldLabel = new QLabel(QString("剩余金币：%1").arg(gold), resultPanel);
+    QLabel *scoreLabel = new QLabel(QString("总得分：%1").arg(score), resultPanel);
 
-    QTimer::singleShot(3000, this, [this]() {
-        if (resultOverlay)
-        {
-            resultOverlay->deleteLater();
-            resultOverlay = nullptr;
-            resultPanel = nullptr;
-        }
-        emit returnToMainMenu();
-    });
+    for (QLabel *label : {levelLabel, waveLabel, killLabel, goldLabel, scoreLabel})
+    {
+        label->setAlignment(Qt::AlignCenter);
+        label->setFont(QFont("Microsoft YaHei", 16, QFont::Normal));
+        label->setStyleSheet("color: #34495e; padding: 8px 0px;");
+        label->setMinimumHeight(36);
+        layout->addWidget(label);
+    }
+
+    layout->addSpacing(12);
+
+    QHBoxLayout *buttonLayout = new QHBoxLayout();
+    buttonLayout->setSpacing(20);
+    buttonLayout->setContentsMargins(0, 0, 0, 0);
+
+    QPushButton *menuButton = new QPushButton("返回主菜单", resultPanel);
+    QPushButton *restartButton = new QPushButton("重新开始", resultPanel);
+
+    QList<QPushButton *> buttons = {menuButton, restartButton};
+    for (QPushButton *btn : buttons)
+    {
+        btn->setMinimumHeight(48);
+        btn->setMinimumWidth(130);
+        btn->setFont(QFont("Microsoft YaHei", 14, QFont::Bold));
+    }
+
+    menuButton->setStyleSheet(
+        "QPushButton {"
+        "   color: white;"
+        "   background-color: qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 #e74c3c, stop:1 #cb4335);"
+        "   border-radius: 10px;"
+        "   padding: 8px;"
+        "   border: 2px solid #c0392b;"
+        "}"
+        "QPushButton:hover {"
+        "   background-color: qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 #ec7063, stop:1 #e74c3c);"
+        "}"
+        "QPushButton:pressed {"
+        "   background-color: #c0392b;"
+        "   border: 2px solid #a93226;"
+        "}");
+
+    restartButton->setStyleSheet(
+        "QPushButton {"
+        "   color: white;"
+        "   background-color: qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 #27ae60, stop:1 #229954);"
+        "   border-radius: 10px;"
+        "   padding: 8px;"
+        "   border: 2px solid #1e8449;"
+        "}"
+        "QPushButton:hover {"
+        "   background-color: qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 #2ecc71, stop:1 #27ae60);"
+        "}"
+        "QPushButton:pressed {"
+        "   background-color: #1e8449;"
+        "   border: 2px solid #145a32;"
+        "}");
+
+    buttonLayout->addWidget(menuButton);
+    buttonLayout->addWidget(restartButton);
+    layout->addLayout(buttonLayout);
+
+    QPropertyAnimation *fadeIn = new QPropertyAnimation(effect, "opacity", resultPanel);
+    fadeIn->setDuration(300);
+    fadeIn->setStartValue(0.0);
+    fadeIn->setEndValue(1.0);
+    fadeIn->setEasingCurve(QEasingCurve::OutCubic);
+
+    QRect startRect = resultPanel->geometry();
+    int dw = startRect.width() / 8;
+    int dh = startRect.height() / 8;
+    QRect smallRect(startRect.adjusted(dw, dh, -dw, -dh));
+
+    resultPanel->setGeometry(smallRect);
+
+    QPropertyAnimation *scaleAnim = new QPropertyAnimation(resultPanel, "geometry", resultPanel);
+    scaleAnim->setDuration(300);
+    scaleAnim->setStartValue(smallRect);
+    scaleAnim->setEndValue(startRect);
+    scaleAnim->setEasingCurve(QEasingCurve::OutBack);
+
+    fadeIn->start(QAbstractAnimation::DeleteWhenStopped);
+    scaleAnim->start(QAbstractAnimation::DeleteWhenStopped);
+
+    connect(menuButton, &QPushButton::clicked, this, [this]()
+            {
+                if (resultOverlay)
+                {
+                    resultOverlay->deleteLater();
+                    resultOverlay = nullptr;
+                    resultPanel = nullptr;
+                }
+                emit returnToMainMenu();
+            });
+
+    connect(restartButton, &QPushButton::clicked, this, [this]()
+            {
+                if (resultOverlay)
+                {
+                    resultOverlay->deleteLater();
+                    resultOverlay = nullptr;
+                    resultPanel = nullptr;
+                }
+                resetGame();
+                startGame();
+            });
 
     resultOverlay->show();
     resultPanel->show();
