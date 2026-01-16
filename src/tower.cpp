@@ -28,7 +28,7 @@ Tower::Tower(TowerType type, QPointF position, QObject *parent)
       baseItem(nullptr),
       currentRotation(0.0),
       targetRotation(0.0),
-      rotationSpeed(45.0),
+      rotationSpeed(GameConfig::TOWER_ROTATION_SPEED_DEG_PER_SEC),
       targetLocked(false),
       targetLostTime(0),
       resourceManager(nullptr)
@@ -337,8 +337,7 @@ void Tower::updateTowerRotation()
         delta += 360.0;
 
     // 计算单帧旋转步长
-    // rotationSpeed 单位为 deg/s，update() 约 16ms 执行一次 (60fps)
-    qreal stepPerFrame = rotationSpeed * 0.016; 
+    qreal stepPerFrame = rotationSpeed * (GameConfig::GAME_TICK_INTERVAL_MS / 1000.0);
     
     // 平滑旋转至目标角度
     if (std::abs(delta) < stepPerFrame)
@@ -378,9 +377,8 @@ void Tower::updateTargetLock()
             targetLocked = false;
             return;
         }
-        // 如果锁定时间超过 400ms 则解除锁定
         if (targetLockTimer.isValid() &&
-            targetLockTimer.hasExpired(400))
+            targetLockTimer.hasExpired(GameConfig::TOWER_TARGET_LOCK_MS))
         {
             targetLocked = false;
             currentTarget = nullptr;

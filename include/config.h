@@ -5,70 +5,296 @@
 #include <QVector>
 #include <QPointF>
 
+// 全局配置入口：
+// - 所有与游戏规则、数值平衡、窗口尺寸等相关的常量均集中在此
+// - 页面内部纯绘制用的“像素偏移”“控件间距”等局部魔法数保留在各自页面中
 namespace GameConfig
 {
-    // 窗口设置
+    // ======================== 窗口与网格配置 ========================
+
+    // 用途：游戏主窗口宽度（像素），决定渲染区域和地图宽度
+    // 取值范围：>= 640，建议与资源图片分辨率匹配
+    // 默认值：800
+    // 修改注意：修改后需同时关注地图背景、路径点等是否仍在可视区域内
     const int WINDOW_WIDTH = 800;
+
+    // 用途：游戏主窗口高度（像素），决定渲染区域和地图高度
+    // 取值范围：>= 480，建议与资源图片分辨率匹配
+    // 默认值：600
+    // 修改注意：修改后需检查背景、终点区域以及 UI 控件是否被裁剪
     const int WINDOW_HEIGHT = 600;
+
+    // 用途：逻辑网格大小（像素），用于路径、建塔、碰撞等坐标换算
+    // 取值范围：> 0，一般在 32~64 之间
+    // 默认值：40
+    // 修改注意：修改后需重新评估路径点、建塔位置与资源尺寸是否对齐
     const int GRID_SIZE = 40;
 
-    // 游戏设置
+    // ======================== 游戏基础数值配置 ========================
+
+    // 用途：每局游戏初始生命值（被敌人到达终点时扣减）
+    // 取值范围：> 0
+    // 默认值：20
+    // 修改注意：直接影响容错空间与整体难度，调大可降低难度
     const int INITIAL_LIVES = 20;
+
+    // 用途：每局游戏初始金币，用于建造与升级防御塔
+    // 取值范围：>= 0
+    // 默认值：300
+    // 修改注意：与塔的造价配合使用，过高会削弱资源管理的乐趣
     const int INITIAL_GOLD = 300;
+
+    // 用途：敌人被击杀时基础金币奖励
+    // 取值范围：>= 0
+    // 默认值：15
+    // 修改注意：与敌人数量和塔成本联动，建议成比例调整
     const int ENEMY_REWARD = 15;
 
-    // 敌人设置
-    const int ENEMY_TYPE_NUMBER = 4; // 敌人类型数量
-    const int ENEMY_HEALTH = 100;
-    const int ENEMY_SIZE = 30;
-    const int ENEMY_MOVE_INTERVAL = 50; // ms
-    const float ENEMY_SPEED = 1.0f;
-    const int ENEMY_DEAD_KEEP_TIME = 500; // ms
+    // 用途：游戏逻辑更新的帧间隔（毫秒），控制主循环刷新频率
+    const int GAME_TICK_INTERVAL_MS = 16;
 
-    // 子弹设置
+    // 用途：每击杀一个敌人获得的得分
+    const int SCORE_PER_KILL = 10;
+
+    // 用途：每通过一波获得的得分
+    const int SCORE_PER_WAVE = 50;
+
+    // 用途：评级阈值（总得分不小于该值触发对应等级）
+    const int SCORE_GRADE_S_MIN = 1200;
+    const int SCORE_GRADE_A_MIN = 800;
+    const int SCORE_GRADE_B_MIN = 400;
+
+    // 用途：拆除防御塔时返还的百分比（0-100）
+    const int TOWER_SELL_REFUND_PERCENT = 70;
+
+    // ======================== 敌人基础配置 ========================
+
+    // 用途：可用敌人类型的数量（用于随机类型选择与边界检查）
+    // 取值范围：>= 1
+    // 默认值：4
+    // 修改注意：增加或减少类型时需同步更新资源加载与类型枚举
+    const int ENEMY_TYPE_NUMBER = 4;
+
+    // 用途：第一波敌人的基础血量，后续波次在此基础上按公式递增
+    // 取值范围：> 0
+    // 默认值：100
+    // 修改注意：直接影响所有波次血量曲线，应与 calculateWaveHealth 一致调整
+    const int ENEMY_HEALTH = 100;
+
+    // 用途：敌人逻辑尺寸（像素），用于渲染与碰撞检测
+    // 取值范围：> 0
+    // 默认值：30
+    // 修改注意：修改后需同步关注 ENEMY_COLLISION_RADIUS 与资源缩放效果
+    const int ENEMY_SIZE = 30;
+
+    // 用途：敌人移动计时器触发间隔（毫秒）
+    // 取值范围：> 0
+    // 默认值：50
+    // 修改注意：该值越小移动越平滑，但 CPU 占用增加
+    const int ENEMY_MOVE_INTERVAL = 50;
+
+    // 用途：敌人基础移动速度（每次移动的单位距离，配合计时器使用）
+    // 取值范围：> 0
+    // 默认值：1.0f
+    // 修改注意：与 ENEMY_MOVE_INTERVAL 一起决定实际移动速度，修改需联动考虑
+    const float ENEMY_SPEED = 1.0f;
+
+    // 用途：敌人死亡后在场景中保留的时间（毫秒）
+    // 取值范围：>= 0
+    // 默认值：500
+    // 修改注意：过大将增加场景中“尸体”数量，可能影响视觉清晰度
+    const int ENEMY_DEAD_KEEP_TIME = 500;
+
+    // ======================== 子弹基础配置 ========================
+
+    // 用途：子弹逻辑尺寸（像素），用于渲染与碰撞检测
+    // 取值范围：> 0
+    // 默认值：10
+    // 修改注意：修改后需检查子弹贴图缩放效果与碰撞半径
     const int BULLET_SIZE = 10;
-    const int BULLET_MOVE_INTERVAL = 30; // ms
+
+    // 用途：子弹移动计时器触发间隔（毫秒）
+    // 取值范围：> 0
+    // 默认值：30
+    // 修改注意：值越小运动越平滑，但会增加 CPU 消耗
+    const int BULLET_MOVE_INTERVAL = 30;
+
+    // 用途：子弹基础移动速度（每次移动的单位距离）
+    // 取值范围：> 0
+    // 默认值：5.0f
+    // 修改注意：与 BULLET_MOVE_INTERVAL 一起决定实际飞行速度
     const float BULLET_SPEED = 5.0f;
 
-    // 防御塔设置
+    // ======================== 防御塔数值配置 ========================
+
     namespace TowerStats
     {
-        // 箭塔
-        const int ARROW_DAMAGE = 20;
-        const int ARROW_RANGE = 150;
-        const int ARROW_COST = 100;
-        const int ARROW_FIRE_RATE = 1000; // ms
+        // -------- 箭塔（基础型防御塔） --------
 
-        // 炮塔
+        // 用途：箭塔单次攻击造成的基础伤害
+        // 取值范围：> 0
+        // 默认值：20
+        // 修改注意：与敌人血量、攻击间隔共同决定输出强度
+        const int ARROW_DAMAGE = 20;
+
+        // 用途：箭塔攻击范围半径（像素）
+        // 取值范围：> 0
+        // 默认值：150
+        // 修改注意：范围过大可能导致覆盖全图，削弱布阵策略
+        const int ARROW_RANGE = 150;
+
+        // 用途：建造箭塔所需金币
+        // 取值范围：>= 0
+        // 默认值：100
+        // 修改注意：需与初始金币和敌人奖励共同平衡
+        const int ARROW_COST = 100;
+
+        // 用途：箭塔攻击间隔（毫秒），两次开火之间的最小时间
+        // 取值范围：> 0
+        // 默认值：1000
+        // 修改注意：值越小攻速越快，需与伤害数值配合
+        const int ARROW_FIRE_RATE = 1000;
+
+        // -------- 炮塔（范围伤害防御塔） --------
+
+        // 用途：炮塔单次攻击基础伤害
+        // 取值范围：> 0
+        // 默认值：30
+        // 修改注意：通常配合较慢攻速与较小范围使用
         const int CANNON_DAMAGE = 30;
+
+        // 用途：炮塔攻击范围半径（像素）
+        // 取值范围：> 0
+        // 默认值：100
+        // 修改注意：与伤害和造价一道调节性价比
         const int CANNON_RANGE = 100;
+
+        // 用途：建造炮塔所需金币
+        // 取值范围：>= 0
+        // 默认值：150
+        // 修改注意：应高于箭塔，体现中高级防御塔定位
         const int CANNON_COST = 150;
+
+        // 用途：炮塔攻击间隔（毫秒）
+        // 取值范围：> 0
+        // 默认值：1500
+        // 修改注意：与范围伤害特性搭配，避免 DPS 过高
         const int CANNON_FIRE_RATE = 1500;
 
-        // 魔法塔
+        // -------- 魔法塔（高伤高价防御塔） --------
+
+        // 用途：魔法塔单次攻击基础伤害
+        // 取值范围：> 0
+        // 默认值：50
+        // 修改注意：通常配合更高造价与较慢攻速
         const int MAGIC_DAMAGE = 50;
+
+        // 用途：魔法塔攻击范围半径（像素）
+        // 取值范围：> 0
+        // 默认值：150
+        // 修改注意：需与伤害、造价一起调节，避免一塔通关
         const int MAGIC_RANGE = 150;
+
+        // 用途：建造魔法塔所需金币
+        // 取值范围：>= 0
+        // 默认值：200
+        // 修改注意：应明显高于基础塔，体现高阶定位
         const int MAGIC_COST = 200;
+
+        // 用途：魔法塔攻击间隔（毫秒）
+        // 取值范围：> 0
+        // 默认值：2000
+        // 修改注意：与高伤害数值配合，控制输出节奏
         const int MAGIC_FIRE_RATE = 2000;
     }
 
-    // 波次设置
-    const int WAVE_ENEMY_COUNT = 10; // 每波敌人数量
-    const int WAVE_COUNT_MAX = 5;
-    const int WAVE_SPAWN_INTERVAL_MAX = 2000; // ms
-    const int WAVE_SPAWN_INTERVAL_MIN = 500;  // ms
-    const int WAVE_SPAWN_INTERVAL_EACH = 200; // ms
+    // ======================== 波次与刷怪节奏配置 ========================
 
-    // 碰撞检测
+    // 用途：每波固定刷新的敌人数量
+    // 取值范围：> 0
+    // 默认值：10
+    // 修改注意：实际压力取决于敌人血量与移动速度，调整前建议多做测试
+    const int WAVE_ENEMY_COUNT = 10;
+
+    // 用途：单关卡最大波次数量
+    // 取值范围：> 0
+    // 默认值：5
+    // 修改注意：增加波次会拉长关卡时长，需与难度曲线一起评估
+    const int WAVE_COUNT_MAX = 5;
+
+    // 用途：第一波刷怪的初始间隔（毫秒）
+    // 取值范围：> 0
+    // 默认值：2000
+    // 修改注意：越大节奏越慢，建议与 WAVE_SPAWN_INTERVAL_EACH 联动调整
+    const int WAVE_SPAWN_INTERVAL_MAX = 2000;
+
+    // 用途：后期刷怪间隔下限（毫秒）
+    // 取值范围：> 0 且 < WAVE_SPAWN_INTERVAL_MAX
+    // 默认值：500
+    // 修改注意：必须保证小于最大间隔，否则节奏收缩无效
+    const int WAVE_SPAWN_INTERVAL_MIN = 500;
+
+    // 用途：每增加一波时刷怪间隔递减量（毫秒）
+    // 取值范围：>= 0
+    // 默认值：200
+    // 修改注意：过大可能导致后期过于拥挤，需结合最大波次校验
+    const int WAVE_SPAWN_INTERVAL_EACH = 200;
+
+    // 用途：每波敌人血量相对上一波的线性增长系数
+    const qreal ENEMY_HEALTH_GROWTH_PER_WAVE = 0.5;
+
+    // 用途：每波敌人速度相对上一波的线性增长系数
+    const float ENEMY_SPEED_GROWTH_PER_WAVE = 0.1f;
+
+    // ======================== 碰撞检测配置 ========================
+
+    // 用途：敌人碰撞半径（像素），用于与子弹的碰撞判断
+    // 取值范围：> 0
+    // 默认值：ENEMY_SIZE / 2.0f
+    // 修改注意：通常与图像尺寸保持一致，过大或过小都会影响命中体感
     const float ENEMY_COLLISION_RADIUS = ENEMY_SIZE / 2.0f;
+
+    // 用途：子弹碰撞半径（像素）
+    // 取值范围：> 0
+    // 默认值：BULLET_SIZE / 2.0f
+    // 修改注意：需与 ENEMY_COLLISION_RADIUS 搭配调整，确保命中判定合理
     const float BULLET_COLLISION_RADIUS = BULLET_SIZE / 2.0f;
 
-    // 防御塔旋转设置
+    // ======================== 旋转与目标锁定配置 ========================
+
+    // 用途：防御塔单帧最大旋转角度（度），控制转向速度
+    // 取值范围：> 0 且 <= 180
+    // 默认值：5.0f
+    // 修改注意：过大将导致转向不自然，过小则塔跟踪能力不足
     const float TOWER_ROTATION_MAX_STEP = 5.0f;
+
+    // 用途：防御塔旋转速度（度/秒），用于计算每帧插值步长
+    const float TOWER_ROTATION_SPEED_DEG_PER_SEC = 45.0f;
+
+    // 用途：塔在锁定目标时保持目标不变的时间（毫秒）
+    // 取值范围：>= 0
+    // 默认值：400
+    // 修改注意：过短会频繁切换目标，过长在高机动敌人下表现不佳
     const int TOWER_TARGET_LOCK_MS = 400;
+
+    // 用途：子弹最大飞行距离（像素），超过则自动销毁
+    // 取值范围：> 0
+    // 默认值：600.0f
+    // 修改注意：用于避免子弹无限飞行导致性能问题
     const float BULLET_MAX_DISTANCE = 600.0f;
+
+    // 用途：失去目标后维持追踪的最大时间（毫秒）
+    // 取值范围：>= 0
+    // 默认值：400
+    // 修改注意：过大可能导致子弹长时间无效飞行
     const int BULLET_TARGET_LOST_TIMEOUT_MS = 400;
 
+    // ======================== 地图与路径配置 ========================
+
+    // 用途：终点区域配置，用于判断敌人是否到达萝卜
+    // 取值范围：x、y 为像素坐标；radius > 0
+    // 默认值：见各地图具体填充
+    // 修改注意：应与实际终点绘制位置保持一致
     struct EndPointConfig
     {
         qreal x;
@@ -76,22 +302,32 @@ namespace GameConfig
         qreal radius;
     };
 
+    // 用途：关卡枚举 ID，对应不同地图与资源
+    // 取值范围：从 0 开始的连续枚举值
+    // 默认值：MAP1、MAP2
+    // 修改注意：新增地图时需同步更新路径、建塔点等配置
     enum MapId
     {
         MAP1 = 0,
         MAP2 = 1
     };
 
-    // 定义路径点数据结构，使用网格坐标
+    // 用途：网格坐标结构，统一描述路径点与建塔点位置
+    // 取值范围：gridX、gridY >= 0
+    // 默认值：由具体地图数组给出
+    // 修改注意：与 GRID_SIZE 一起决定实际像素坐标
     struct GridPoint
     {
-        int gridX; // 网格列数
-        int gridY; // 网格行数
+        int gridX;
+        int gridY;
     };
 
     namespace MapPaths
     {
-        // 使用网格坐标定义路径，更清晰易维护
+        // 用途：地图 1 的敌人行进路径（网格坐标序列）
+        // 取值范围：序列不得为空，相邻点在网格上应连通
+        // 默认值：当前为一条“折线”路线
+        // 修改注意：调整路径时需同步检查终点配置与背景贴图
         const QVector<GridPoint> MAP1_PATH = {
             {16, 6},
             {16, 7},
@@ -106,6 +342,10 @@ namespace GameConfig
             {16, 9},
         };
 
+        // 用途：地图 2 的敌人行进路径（网格坐标序列）
+        // 取值范围：同 MAP1_PATH
+        // 默认值：当前为一条穿插多段的路线
+        // 修改注意：需与地图背景的道路绘制一致
         const QVector<GridPoint> MAP2_PATH = {
             {2, 12},
             {5, 12},
@@ -122,15 +362,24 @@ namespace GameConfig
             {18, 8},
         };
 
-        // 地图ID到路径的映射
+        // 用途：根据地图 ID 查找对应路径配置的映射表
+        // 取值范围：键为 MapId，值为非空路径数组
+        // 默认值：包含 MAP1 与 MAP2
+        // 修改注意：新增地图时必须在此注册对应路径
         const QHash<MapId, QVector<GridPoint>> PATH_MAP = {
             {MAP1, MAP1_PATH},
             {MAP2, MAP2_PATH},
         };
     }
 
+    // ======================== 建塔可放置区域配置 ========================
+
     namespace Placement
     {
+        // 用途：地图 1 中允许建塔的网格列表
+        // 取值范围：坐标需在地图有效区域内且不与路径重叠
+        // 默认值：当前为手工选定的一组平衡点位
+        // 修改注意：调整后需验证可玩性和难度
         const QVector<GridPoint> MAP1_BUILDABLE_GRIDS = {
             {13, 6},
             {14, 6},
@@ -164,6 +413,10 @@ namespace GameConfig
             {16, 10},
         };
 
+        // 用途：地图 2 中允许建塔的网格列表
+        // 取值范围：与 MAP1_BUILDABLE_GRIDS 相同
+        // 默认值：当前为手工选定的一组平衡点位
+        // 修改注意：尤其要避免阻断敌人路径
         const QVector<GridPoint> MAP2_BUILDABLE_GRIDS = {
             {2, 10},
             {3, 10},
@@ -187,14 +440,29 @@ namespace GameConfig
             {7, 13},
         };
 
+        // 用途：地图 ID 到可建塔网格列表的映射
+        // 取值范围：键为 MapId，值为非空建塔列表
+        // 默认值：包含 MAP1 与 MAP2
+        // 修改注意：新增地图时需同步注册
         const QHash<MapId, QVector<GridPoint>> BUILDABLE_MAP = {
             {MAP1, MAP1_BUILDABLE_GRIDS},
             {MAP2, MAP2_BUILDABLE_GRIDS},
         };
     }
 
+    // ======================== UI 提示与特效配置 ========================
+
+    // 用途：悬浮提示文字的显示时长（毫秒）
     const int TIP_DURATION_MS = 2000;
 
+    // 用途：升级特效（光圈等）的持续时间（毫秒）
+    const int UPGRADE_EFFECT_DURATION_MS = 300;
+
+    // 用途：建塔时高亮方格的持续时间（毫秒）
+    const int HIGHLIGHT_EFFECT_DURATION_MS = 500;
+
+    // 用途：结算面板淡入和缩放动画时长（毫秒）
+    const int RESULT_PANEL_ANIM_DURATION_MS = 300;
 }
 
 #endif // CONFIG_H

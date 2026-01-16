@@ -43,7 +43,7 @@ void GameManager::startGame()
     gameRunning = true;
     paused = false;
 
-    gameTimer->start(16);
+    gameTimer->start(GameConfig::GAME_TICK_INTERVAL_MS);
     enemySpawnTimer->start(getWaveSpawnInterval());
 
     emit gameStateChanged(gameRunning, paused);
@@ -63,7 +63,7 @@ void GameManager::pauseGame()
     }
     else
     {
-        gameTimer->start(16);
+        gameTimer->start(GameConfig::GAME_TICK_INTERVAL_MS);
         enemySpawnTimer->start(getWaveSpawnInterval());
     }
 
@@ -314,16 +314,15 @@ int GameManager::getWaveSpawnInterval() const
 
 int GameManager::calculateWaveHealth() const
 {
-    // 每波敌人血量：ENEMY_HEALTH * (1 + 0.5 * (currentWave - 1))
     const int base = GameConfig::ENEMY_HEALTH;
-    qreal factor = 1.0 + 0.5 * (currentWave - 1);
+    qreal factor = 1.0 + GameConfig::ENEMY_HEALTH_GROWTH_PER_WAVE * (currentWave - 1);
     int hp = static_cast<int>(base * factor);
     return hp;
 }
 
 float GameManager::calculateWaveSpeed() const
 {
-    float factor = 1.0f + 0.1f * static_cast<float>(currentWave - 1);
+    float factor = 1.0f + GameConfig::ENEMY_SPEED_GROWTH_PER_WAVE * static_cast<float>(currentWave - 1);
     return GameConfig::ENEMY_SPEED * factor;
 }
 

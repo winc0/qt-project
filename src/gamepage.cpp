@@ -536,7 +536,7 @@ void GamePage::showUpgradeEffect(const QPointF &scenePos)
     effectItem->setZValue(1500);
     gameScene->addItem(effectItem);
 
-    QTimer::singleShot(300, [effectItem]()
+    QTimer::singleShot(GameConfig::UPGRADE_EFFECT_DURATION_MS, [effectItem]()
                        {
         if (effectItem->scene())
         {
@@ -725,13 +725,15 @@ void GamePage::showGameOverDialog()
     int wave = gameManager ? gameManager->getCurrentWave() : 1;
     int gold = gameManager ? gameManager->getGold() : 0;
 
-    int score = kill * 10 + wave * 50 + gold;
+    int score = kill * GameConfig::SCORE_PER_KILL +
+                wave * GameConfig::SCORE_PER_WAVE +
+                gold;
     QString grade;
-    if (score >= 1200)
+    if (score >= GameConfig::SCORE_GRADE_S_MIN)
         grade = "S";
-    else if (score >= 800)
+    else if (score >= GameConfig::SCORE_GRADE_A_MIN)
         grade = "A";
-    else if (score >= 400)
+    else if (score >= GameConfig::SCORE_GRADE_B_MIN)
         grade = "B";
     else
         grade = "C";
@@ -818,7 +820,7 @@ void GamePage::showGameOverDialog()
     layout->addLayout(buttonLayout);
 
     QPropertyAnimation *fadeIn = new QPropertyAnimation(effect, "opacity", resultPanel);
-    fadeIn->setDuration(300);
+    fadeIn->setDuration(GameConfig::RESULT_PANEL_ANIM_DURATION_MS);
     fadeIn->setStartValue(0.0);
     fadeIn->setEndValue(1.0);
     fadeIn->setEasingCurve(QEasingCurve::OutCubic);
@@ -831,7 +833,7 @@ void GamePage::showGameOverDialog()
     resultPanel->setGeometry(smallRect);
 
     QPropertyAnimation *scaleAnim = new QPropertyAnimation(resultPanel, "geometry", resultPanel);
-    scaleAnim->setDuration(300);
+    scaleAnim->setDuration(GameConfig::RESULT_PANEL_ANIM_DURATION_MS);
     scaleAnim->setStartValue(smallRect);
     scaleAnim->setEndValue(startRect);
     scaleAnim->setEasingCurve(QEasingCurve::OutBack);
@@ -934,7 +936,9 @@ void GamePage::showLevelCompleteDialog()
     int gold = gameManager ? gameManager->getGold() : 0;
     int mapIndex = static_cast<int>(currentMapId) + 1;
 
-    int score = kill * 10 + wave * 50 + gold;
+    int score = kill * GameConfig::SCORE_PER_KILL +
+                wave * GameConfig::SCORE_PER_WAVE +
+                gold;
 
     QLabel *levelLabel = new QLabel(QString("当前关卡：第 %1 关").arg(mapIndex), resultPanel);
     QLabel *waveLabel = new QLabel(QString("防守波次：第 %1 波").arg(wave), resultPanel);
@@ -1005,7 +1009,7 @@ void GamePage::showLevelCompleteDialog()
     layout->addLayout(buttonLayout);
 
     QPropertyAnimation *fadeIn = new QPropertyAnimation(effect, "opacity", resultPanel);
-    fadeIn->setDuration(300);
+    fadeIn->setDuration(GameConfig::RESULT_PANEL_ANIM_DURATION_MS);
     fadeIn->setStartValue(0.0);
     fadeIn->setEndValue(1.0);
     fadeIn->setEasingCurve(QEasingCurve::OutCubic);
@@ -1018,7 +1022,7 @@ void GamePage::showLevelCompleteDialog()
     resultPanel->setGeometry(smallRect);
 
     QPropertyAnimation *scaleAnim = new QPropertyAnimation(resultPanel, "geometry", resultPanel);
-    scaleAnim->setDuration(300);
+    scaleAnim->setDuration(GameConfig::RESULT_PANEL_ANIM_DURATION_MS);
     scaleAnim->setStartValue(smallRect);
     scaleAnim->setEndValue(startRect);
     scaleAnim->setEasingCurve(QEasingCurve::OutBack);
@@ -1208,7 +1212,7 @@ void GamePage::mousePressEvent(QMouseEvent *event)
             highlight->setPen(QPen(Qt::NoPen));
             gameScene->addItem(highlight);
 
-            QTimer::singleShot(500, [highlight]()
+            QTimer::singleShot(GameConfig::HIGHLIGHT_EFFECT_DURATION_MS, [highlight]()
                                {
                 if (highlight->scene()) {
                     highlight->scene()->removeItem(highlight);
@@ -1288,7 +1292,7 @@ void GamePage::mousePressEvent(QMouseEvent *event)
             upgradeText = QString("升级为%1 (-%2 金币)").arg(nextName).arg(extraCost);
         }
 
-        int refund = currentCost * 70 / 100;
+        int refund = currentCost * GameConfig::TOWER_SELL_REFUND_PERCENT / 100;
 
         QMenu menu(this);
         menu.setWindowOpacity(0.9);
